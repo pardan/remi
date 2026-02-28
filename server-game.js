@@ -474,6 +474,8 @@ class ServerGame {
         const remaining = [...hand];
         const foundMelds = [];
         const nonJokers = remaining.filter(c => !c.isJoker(game));
+        const jokers = remaining.filter(c => c.isJoker(game));
+        const availableJokers = [...jokers];
         const usedIds = new Set();
 
         const bySuitAndGroup = {};
@@ -489,17 +491,39 @@ class ServerGame {
             const suitCards = bySuitAndGroup[key].filter(c => !usedIds.has(c.id)).sort((a, b) => a.order - b.order);
             const unique = []; const seenOrders = new Set();
             suitCards.forEach(c => { if (!seenOrders.has(c.order)) { seenOrders.add(c.order); unique.push(c); } });
+
             for (let i = 0; i < unique.length; i++) {
                 const run = [unique[i]]; let lastOrder = unique[i].order;
+                let jokersUsed = [];
                 for (let j = i + 1; j < unique.length; j++) {
-                    if (unique[j].order === lastOrder + 1 && !usedIds.has(unique[j].id)) {
+                    const gap = unique[j].order - lastOrder - 1;
+                    if (gap === 0 && !usedIds.has(unique[j].id)) {
+                        run.push(unique[j]); lastOrder = unique[j].order;
+                    } else if (gap > 0 && gap <= availableJokers.length && !usedIds.has(unique[j].id)) {
+                        for (let g = 0; g < gap; g++) {
+                            const jkr = availableJokers.pop();
+                            run.push(jkr);
+                            jokersUsed.push(jkr);
+                        }
                         run.push(unique[j]); lastOrder = unique[j].order;
                     } else break;
                 }
-                if (run.length >= 3) {
+
+                // If run needs more cards to reach 3, and we have min 2 real cards, use jokers to extend
+                let realCount = run.filter(c => !c.isJoker(game)).length;
+                while (run.length < 3 && realCount >= 2 && availableJokers.length > 0) {
+                    const jkr = availableJokers.pop();
+                    run.push(jkr);
+                    jokersUsed.push(jkr);
+                }
+
+                if (run.length >= 3 && realCount >= 2) {
                     run.forEach(c => usedIds.add(c.id));
                     foundMelds.push(new Meld(run, -1, -1, game));
-                    i += run.length - 1;
+                    i += realCount - 1;
+                } else {
+                    // Revert jokers
+                    jokersUsed.forEach(jkr => availableJokers.push(jkr));
                 }
             }
         }
@@ -507,17 +531,33 @@ class ServerGame {
         const remainingNonJokers = nonJokers.filter(c => !usedIds.has(c.id));
         const byRank = {};
         remainingNonJokers.forEach(c => { if (!byRank[c.rank]) byRank[c.rank] = []; byRank[c.rank].push(c); });
+
         for (const rank in byRank) {
             const group = byRank[rank];
             const uniqueSuits = []; const seen = new Set();
             group.forEach(c => { if (!seen.has(c.suit) && !usedIds.has(c.id)) { seen.add(c.suit); uniqueSuits.push(c); } });
-            if (uniqueSuits.length >= 3) {
+
+            if (uniqueSuits.length >= 2) {
                 const setCards = uniqueSuits.slice(0, Math.min(4, uniqueSuits.length));
-                setCards.forEach(c => usedIds.add(c.id));
-                foundMelds.push(new Meld(setCards, -1, -1, game));
+                let jokersUsed = [];
+                let realCount = setCards.length;
+
+                while (setCards.length < 3 && realCount >= 2 && availableJokers.length > 0) {
+                    const jkr = availableJokers.pop();
+                    setCards.push(jkr);
+                    jokersUsed.push(jkr);
+                }
+
+                if (setCards.length >= 3 && realCount >= 2) {
+                    setCards.forEach(c => usedIds.add(c.id));
+                    foundMelds.push(new Meld(setCards, -1, -1, game));
+                } else {
+                    jokersUsed.forEach(jkr => availableJokers.push(jkr));
+                }
             }
         }
 
+        // Add remaining jokers back into singles
         const singles = remaining.filter(c => !usedIds.has(c.id));
         return { melds: foundMelds, singles };
     }
@@ -525,11 +565,21 @@ class ServerGame {
     calculatePlayerScore(player, isWinner, bonus = 0) {
         let meldedPositive = 0, handPositive = 0, handNegative = 0;
         this.melds.filter(m => m.owner === player.id).forEach(m => { meldedPositive += this.calcMeldPoints(m); });
+
         if (player.hand.length > 0) {
             const { melds, singles } = this.findHandMelds(player.hand);
             melds.forEach(m => { handPositive += this.calcMeldPoints(m); });
-            singles.forEach(c => { handNegative -= c.value; });
+
+            singles.forEach(c => {
+                if (c.isJoker(this)) {
+                    const penaltyValues = { 'A': 150, 'J': 100, 'Q': 100, 'K': 100 };
+                    handNegative -= (penaltyValues[c.rank] || 50);
+                } else {
+                    handNegative -= c.value();
+                }
+            });
         }
+
         const roundScore = meldedPositive + handPositive + handNegative + bonus;
         return { playerId: player.id, playerName: player.name, meldedPositive, handPositive, handNegative, tutupDeckBonus: bonus, roundScore, totalScore: player.score + roundScore, isWinner };
     }
