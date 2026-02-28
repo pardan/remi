@@ -395,7 +395,7 @@ class RemiClient {
                     this.gunshotFired = true;
                     this.socket.emit('triggerGunshot');
                 }
-            }, 10000);
+            }, 20000);
         });
 
         // Settings Modal Events
@@ -494,8 +494,8 @@ class RemiClient {
 
         const phase = this.gameState.phase;
         if (phase === 'meld' || phase === 'discard') {
-            if (this.gameState.drawnFromDiscard && !this.gameState.meldedThisTurn) {
-                this.showToast('Ambil dari buangan harus turun dulu!', 'error');
+            if (this.gameState.drawnFromDiscard && !this.gameState.usedDrawnDiscardThisTurn) {
+                this.showToast('Ambil dari buangan harus digunakan untuk turun kartu (meld) terlebih dahulu!', 'error');
                 return;
             }
             const cardId = [...this.selectedCards][0];
@@ -898,7 +898,7 @@ class RemiClient {
 
         btnMeld.disabled = !(isMyTurn && phase === 'meld' && this.selectedCards.size >= 3);
 
-        const mustMeldFirst = s.drawnFromDiscard && !s.meldedThisTurn;
+        const mustMeldFirst = s.drawnFromDiscard && !s.usedDrawnDiscardThisTurn;
         btnDiscard.disabled = !(isMyTurn && (phase === 'meld' || phase === 'discard') && this.selectedCards.size === 1 && !mustMeldFirst);
 
         if (mustMeldFirst && isMyTurn && phase === 'meld') {

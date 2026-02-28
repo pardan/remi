@@ -72,6 +72,8 @@ class ServerGame {
         this.hasDrawn = false;
         this.drawnFromDiscard = false;
         this.meldedThisTurn = false;
+        this.usedDrawnDiscardThisTurn = false; // New property
+        this.drawnDiscardIds = new Set(); // New property
         this.winner = null;
         this.jokerRank = null;
         this.jokerCard = null;
@@ -94,6 +96,8 @@ class ServerGame {
         this.hasDrawn = false;
         this.drawnFromDiscard = false;
         this.meldedThisTurn = false;
+        this.usedDrawnDiscardThisTurn = false; // Reset for new round
+        this.drawnDiscardIds = new Set(); // Reset for new round
         this.jokerRevealed = false;
         this.initialDiscardCount = 0;
         this.initialPenalties = {};
@@ -148,6 +152,8 @@ class ServerGame {
         this.hasDrawn = true;
         this.drawnFromDiscard = false;
         this.meldedThisTurn = false;
+        this.usedDrawnDiscardThisTurn = false; // Reset for deck draw
+        this.drawnDiscardIds = new Set(); // Reset for deck draw
         this.phase = 'meld';
         return { success: true, card: card.toJSON() };
     }
@@ -173,7 +179,13 @@ class ServerGame {
             const fromDiscard = meldCards.filter(c => discardIds.has(c.id)).length;
             const fromHand = meldCards.filter(c => handIds.has(c.id)).length;
             const includesBottom = meldCards.some(c => c.id === bottomCard.id);
-            return fromDiscard >= 1 && fromHand >= 2 && includesBottom;
+            // The player's hand after picking up discard cards and melding must have at least 1 card remaining to discard.
+            // Total cards = (player.hand.length + discardCards.length)
+            // Cards used in meld = meldCards.length
+            // Remaining cards = (player.hand.length + discardCards.length) - meldCards.length
+            // This must be >= 1
+            const leavesOneCard = (player.hand.length + discardCards.length - meldCards.length) >= 1;
+            return fromDiscard >= 1 && fromHand >= 2 && includesBottom && leavesOneCard;
         };
 
         const nonJokers = allCards.filter(c => !c.isJoker(game));
@@ -287,17 +299,10 @@ class ServerGame {
         this.drawnFromDiscard = true;
         this.drawnDiscardIds = new Set(taken.map(c => c.id));
         this.meldedThisTurn = false;
+        this.usedDrawnDiscardThisTurn = false; // Reset for discard draw
         this.phase = 'meld';
 
-        // Auto-meld run if player doesn't have one and there is a valid run in hand
-        if (!this.players[playerId].hasRun) {
-            const handMelds = this.findHandMelds(this.players[playerId].hand).melds;
-            const runMeld = handMelds.find(m => m.type === 'run');
-            if (runMeld) {
-                const runCardIds = runMeld.cards.map(c => c.id);
-                this.playMeld(playerId, runCardIds);
-            }
-        }
+        // Removed auto-meld run logic as per instruction
 
         return { success: true, cards: taken.map(c => c.toJSON()) };
     }
@@ -365,6 +370,9 @@ class ServerGame {
         this.melds.push(meld);
         player.hasMelded = true;
         this.meldedThisTurn = true;
+        if (this.drawnFromDiscard && cardIds.some(id => this.drawnDiscardIds.has(id))) {
+            this.usedDrawnDiscardThisTurn = true; // Updated property name
+        }
         if (validation.type === 'run') player.hasRun = true;
         if (validation.type === 'set' && cards.length === 4 && cards.filter(c => !c.isJoker(this)).every(c => c.rank === 'A')) {
             player.hasRun = true;
@@ -386,15 +394,8 @@ class ServerGame {
         const player = this.players[playerId];
 
         if (this.drawnFromDiscard) {
-            if (!this.meldedThisTurn) {
-                return { success: false, reason: 'Ambil dari buangan harus turun dulu!' };
-            }
-            // Ensure at least one drawn discard card was used in SOME meld this turn
-            // The ones NOT melded are still in the hand (or being discarded right now).
-            // So if the number of drawn cards in hand equals the original pickup size, none were melded.
-            const drawnCardsInHandCount = player.hand.filter(c => this.drawnDiscardIds.has(c.id)).length;
-            if (drawnCardsInHandCount === this.drawnDiscardIds.size) {
-                return { success: false, reason: 'Ambil dari buangan, minimal 1 kartu buangan harus digunakan untuk turun!' };
+            if (!this.usedDrawnDiscardThisTurn) { // Updated property name
+                return { success: false, reason: 'Ambil dari buangan, minimal 1 kartu buangan harus digunakan untuk turun kartu (meld) terlebih dahulu!' };
             }
         }
 
@@ -634,6 +635,8 @@ class ServerGame {
         this.hasDrawn = false;
         this.drawnFromDiscard = false;
         this.meldedThisTurn = false;
+        this.usedDrawnDiscardThisTurn = false; // Reset for next turn
+        this.drawnDiscardIds = new Set(); // Reset for next turn
     }
 
     get currentPlayer() { return this.players[this.currentPlayerIndex]; }
@@ -654,6 +657,8 @@ class ServerGame {
             jokerRevealed: this.jokerRevealed,
             drawnFromDiscard: this.drawnFromDiscard,
             meldedThisTurn: this.meldedThisTurn,
+            usedDrawnDiscardThisTurn: this.usedDrawnDiscardThisTurn, // Expose new property
+            hasDrawn: this.hasDrawn,
             melds: this.melds.map(m => m.toJSON()),
             players: this.players.map(p => ({
                 id: p.id,
