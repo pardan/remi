@@ -575,7 +575,7 @@ class ServerGame {
                     const penaltyValues = { 'A': 150, 'J': 100, 'Q': 100, 'K': 100 };
                     handNegative -= (penaltyValues[c.rank] || 50);
                 } else {
-                    handNegative -= c.value();
+                    handNegative -= c.value;
                 }
             });
         }
