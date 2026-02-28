@@ -434,6 +434,14 @@ class ServerGame {
         }
 
         this.discardPile.push(card);
+
+        if (this.deck.length === 0) {
+            const endResult = this.handleDeckEmpty();
+            endResult.jokerPenalty = jokerPenalty;
+            endResult.discardedCard = card;
+            return endResult;
+        }
+
         this.nextTurn();
         return { success: true, jokerPenalty, discardedCard: card };
     }
