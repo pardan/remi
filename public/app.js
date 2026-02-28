@@ -372,6 +372,11 @@ class RemiClient {
     onDrawPileClick() {
         if (!this.gameState || !this.gameState.isMyTurn || this.gameState.phase !== 'draw') return;
         this.audio.play('select');
+
+        // Animate from draw pile
+        const drawPileEl = document.getElementById('draw-pile');
+        this.animateCardsToHand(drawPileEl, 1);
+
         this.socket.emit('drawFromDeck');
     }
 
@@ -402,6 +407,10 @@ class RemiClient {
         }
 
         this.audio.play('select');
+
+        // Animate from clicked discard card
+        this.animateCardsToHand(clickedCard, count);
+
         this.socket.emit('drawFromDiscard', { count });
     }
 
@@ -903,14 +912,52 @@ class RemiClient {
         toast.className = `toast ${type}`;
         toast.textContent = message;
         container.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateX(30px)';
-            toast.style.transition = 'all 0.3s';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        setTimeout(() => toast.classList.add('fade-out'), 2500);
+        setTimeout(() => toast.remove(), 2800);
     }
+
+    animateCardsToHand(sourceEl, count = 1) {
+        if (!sourceEl) return;
+        const rect = sourceEl.getBoundingClientRect();
+        const handEl = document.getElementById('player-hand');
+        if (!handEl) return;
+        const handRect = handEl.getBoundingClientRect();
+
+        const targetX = handRect.left + handRect.width / 2;
+        const targetY = handRect.top + handRect.height / 2;
+
+        for (let i = 0; i < Math.min(count, 5); i++) {
+            setTimeout(() => {
+                const dummyCard = CardRenderer.createCardElement({ suit: '♠', rank: 'A', id: -1 }, false);
+                dummyCard.className = 'card face-down floating-card';
+
+                // Set initial position
+                dummyCard.style.left = `${rect.left}px`;
+                dummyCard.style.top = `${rect.top}px`;
+                dummyCard.style.width = `${rect.width || 60}px`;
+                dummyCard.style.height = `${rect.height || 85}px`;
+
+                // Calculate displacement
+                const tx = targetX - rect.left - (rect.width || 60) / 2;
+                const ty = targetY - rect.top - (rect.height || 85) / 2;
+
+                dummyCard.style.setProperty('--tx', `${tx}px`);
+                dummyCard.style.setProperty('--ty', `${ty}px`);
+                dummyCard.style.setProperty('--tx-mid', `${tx * 0.5}px`);
+                dummyCard.style.setProperty('--ty-mid', `${ty * 0.5 - 50}px`); // arc upwards
+
+                document.body.appendChild(dummyCard);
+
+                setTimeout(() => {
+                    if (document.body.contains(dummyCard)) {
+                        document.body.removeChild(dummyCard);
+                    }
+                }, 600); // matches animation length
+            }, i * 100);
+        }
+    }
+
+
 }
 
 // ======= INIT =======

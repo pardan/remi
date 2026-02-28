@@ -1689,3 +1689,28 @@ body {
     color: var(--text-muted);
     margin-left: 10px;
 }
+
+/* ===================== FLOATING CARD (PICKUP ANIMATION) ===================== */
+.floating-card {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    animation: floatToHand 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes floatToHand {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        opacity: 1;
+    }
+
+    50% {
+        transform: translate(var(--tx-mid), var(--ty-mid)) scale(1.1) rotate(5deg);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
+        opacity: 0.8;
+    }
+}
