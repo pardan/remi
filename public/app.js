@@ -24,13 +24,13 @@ class AudioController {
 
         // Configure background music
         this.sounds.bgMusic.loop = true;
-        this.sounds.bgMusic.volume = 0;
+        this.sounds.bgMusic.volume = 1;
 
         // Configure SFX volume
-        this.sounds.deal.volume = 0.1;
+        this.sounds.deal.volume = 1;
         this.sounds.place.volume = 1;
         this.sounds.select.volume = 1;
-        this.sounds.turn.volume = 0.5;
+        this.sounds.turn.volume = 1;
 
         this.isMuted = false;
         this._lastPlayed = {};   // Cooldown timestamps per sound
@@ -438,14 +438,6 @@ class RemiClient {
         if (this.selectedCards.size !== 1) return;
 
         const phase = this.gameState.phase;
-        if (phase === 'initial_discard') {
-            const cardId = [...this.selectedCards][0];
-            this.audio.play('place');
-            this.socket.emit('initialDiscard', { cardId });
-            this.selectedCards.clear();
-            return;
-        }
-
         if (phase === 'meld' || phase === 'discard') {
             if (this.gameState.drawnFromDiscard && !this.gameState.meldedThisTurn) {
                 this.showToast('Ambil dari buangan harus turun dulu!', 'error');
@@ -469,7 +461,7 @@ class RemiClient {
     toggleCardSelection(cardId) {
         if (!this.gameState || !this.gameState.isMyTurn) return;
         const phase = this.gameState.phase;
-        if (phase !== 'meld' && phase !== 'discard' && phase !== 'initial_discard' && phase !== 'draw') return;
+        if (phase !== 'meld' && phase !== 'discard' && phase !== 'draw') return;
 
         this.audio.play('select');
 
@@ -538,13 +530,13 @@ class RemiClient {
         const me = s.players[this.myPlayerId];
         if (!me || !me.hand) return;
 
-        // Only trigger deal animation on the very first deal (dealing phase), NOT initial_discard
+        // Only trigger deal animation on the very first deal (dealing phase)
         if (s.phase === 'dealing' && this.previousHandIds.size === 0) {
             this.isDealing = true;
             this.newlyDrawnIds.clear();
         } else {
-            if (this.isDealing && s.phase === 'initial_discard') {
-                // Keep isDealing true ONCE for the transition from dealing to initial_discard
+            if (this.isDealing && s.phase === 'draw') {
+                // Keep isDealing true ONCE for the transition from dealing to draw
                 // so the animation plays, then turn it off
                 this.isDealing = true;
             } else {
@@ -716,7 +708,7 @@ class RemiClient {
             });
         }
 
-        const canSelect = s.isMyTurn && (s.phase === 'meld' || s.phase === 'discard' || s.phase === 'initial_discard' || s.phase === 'draw');
+        const canSelect = s.isMyTurn && (s.phase === 'meld' || s.phase === 'discard' || s.phase === 'draw');
         const canDrag = true; // Always allow drag-and-drop ordering
 
         me.hand.forEach((card, i) => {
@@ -817,7 +809,6 @@ class RemiClient {
         const phaseEl = document.getElementById('phase-indicator');
         if (s.isMyTurn) {
             const phaseText = {
-                'initial_discard': 'Buang 1 kartu (sebelum joker)',
                 'draw': 'Ambil kartu dari Deck atau Buangan',
                 'meld': 'Turun atau Buang kartu',
                 'discard': 'Buang kartu',
@@ -841,13 +832,6 @@ class RemiClient {
 
         const btnMeld = document.getElementById('btn-meld');
         const btnDiscard = document.getElementById('btn-discard');
-
-        if (phase === 'initial_discard') {
-            btnMeld.disabled = true;
-            btnDiscard.disabled = !(isMyTurn && this.selectedCards.size === 1);
-            btnDiscard.textContent = '📤 Buang 1 Kartu (Awal)';
-            return;
-        }
 
         btnMeld.disabled = !(isMyTurn && phase === 'meld' && this.selectedCards.size >= 3);
 

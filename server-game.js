@@ -10,7 +10,7 @@ const RANK_FULL = { 'A': 'ace', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6'
 const RANK_VALUES = { 'A': 15, '2': 5, '3': 5, '4': 5, '5': 5, '6': 5, '7': 5, '8': 5, '9': 5, '10': 5, 'J': 10, 'Q': 10, 'K': 10 };
 const RANK_ORDER = { 'A': 14, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13 };
 
-const INITIAL_CARDS = 8;
+const INITIAL_CARDS = 7;
 const MAX_DISCARD_PICKUP = 7;
 const NUM_PLAYERS = 4;
 
@@ -112,29 +112,11 @@ class ServerGame {
             }
         }
         this.players.forEach(p => this.sortHand(p));
-        this.phase = 'initial_discard';
+        this.phase = 'draw';
         this.currentPlayerIndex = 0;
     }
 
-    // ======= INITIAL DISCARD & JOKER =======
-
-    initialDiscard(playerId, cardId) {
-        if (this.phase !== 'initial_discard') return { success: false, reason: 'Bukan fase buang awal' };
-        if (this.currentPlayerIndex !== playerId) return { success: false, reason: 'Bukan giliran kamu' };
-        const player = this.players[playerId];
-        const cardIndex = player.hand.findIndex(c => c.id === cardId);
-        if (cardIndex === -1) return { success: false, reason: 'Kartu tidak ditemukan' };
-        const card = player.hand.splice(cardIndex, 1)[0];
-        this.discardPile.push(card);
-        this.initialDiscardCount++;
-
-        if (this.initialDiscardCount >= NUM_PLAYERS) {
-            this.phase = 'joker_reveal';
-            return { success: true, allDone: true };
-        }
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % NUM_PLAYERS;
-        return { success: true, allDone: false };
-    }
+    // ======= JOKER REVEAL =======
 
     revealJoker() {
         this.jokerRevealed = true;
@@ -149,8 +131,6 @@ class ServerGame {
                 penalties.push({ playerId, card: card.toJSON(), penalty });
             }
         });
-        this.phase = 'draw';
-        this.currentPlayerIndex = 0;
         return penalties;
     }
 
@@ -286,6 +266,7 @@ class ServerGame {
         return false;
     }
     drawFromDiscard(playerId, count = 1) {
+        if (!this.jokerRevealed) return { success: false, reason: 'Joker belum dibuka, harus ambil dari deck' };
         if (this.phase !== 'draw' || this.hasDrawn) return { success: false, reason: 'Bukan fase ambil kartu' };
         if (this.currentPlayerIndex !== playerId) return { success: false, reason: 'Bukan giliran kamu' };
         const maxPickup = this.getMaxDiscardPickup();
@@ -359,6 +340,7 @@ class ServerGame {
     }
 
     playMeld(playerId, cardIds) {
+        if (!this.jokerRevealed) return { success: false, reason: 'Joker belum dibuka, tidak bisa turun' };
         if (this.phase !== 'meld' && this.phase !== 'draw') return { success: false, reason: 'Bukan fase turun' };
         if (this.currentPlayerIndex !== playerId) return { success: false, reason: 'Bukan giliran kamu' };
         const player = this.players[playerId];
@@ -442,8 +424,14 @@ class ServerGame {
             return endResult;
         }
 
+        let jokerRevealData = null;
+        if (!this.jokerRevealed && this.discardPile.length === NUM_PLAYERS) {
+            const penalties = this.revealJoker();
+            jokerRevealData = { jokerCard: this.jokerCard.toJSON(), jokerRank: this.jokerRank, penalties };
+        }
+
         this.nextTurn();
-        return { success: true, jokerPenalty, discardedCard: card };
+        return { success: true, jokerPenalty, discardedCard: card, jokerRevealData };
     }
 
     // ======= GAME END =======

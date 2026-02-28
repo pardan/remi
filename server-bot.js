@@ -31,15 +31,15 @@ class serverBot {
     }
 
     playTurn(state) {
+        if (!this.connected) return;
+
         const game = this.room.game;
         if (!game || game.currentPlayerIndex !== this.playerIndex) return;
 
         const phase = state.phase;
         const me = game.players[this.playerIndex];
 
-        if (phase === 'initial_discard') {
-            this.doInitialDiscard(me);
-        } else if (phase === 'draw') {
+        if (phase === 'draw') {
             this.doDraw(me, game);
         } else if (phase === 'meld') {
             this.doMeld(me, game);
@@ -55,21 +55,7 @@ class serverBot {
         return 5;
     }
 
-    doInitialDiscard(me) {
-        // Discard highest value card, avoiding Aces if possible
-        let worstCard = me.hand[0];
-        let maxVal = -1;
-
-        for (const c of me.hand) {
-            let v = this.getCardValue(c, { jokerRevealed: false, isJoker: () => false });
-            if (c.rank === 'A') v -= 20; // Try to keep Aces
-            if (v > maxVal) {
-                maxVal = v;
-                worstCard = c;
-            }
-        }
-        this.doAction('initialDiscard', { cardId: worstCard.id });
-    }
+    // Removed doInitialDiscard since it's no longer used
 
     doDraw(me, game) {
         // Try to draw from discard pile if it makes a meld
@@ -90,6 +76,11 @@ class serverBot {
     }
 
     doMeld(me, game) {
+        if (!game.jokerRevealed) {
+            this.doDiscard(me);
+            return;
+        }
+
         let maxAttempts = 5;
         let melded = false;
 

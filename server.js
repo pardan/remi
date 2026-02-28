@@ -87,8 +87,7 @@ function handleGameAction(roomCode, playerIndex, action, payload = {}) {
     if (!room || !room.game) return;
 
     let result;
-    if (action === 'initialDiscard') result = room.game.initialDiscard(playerIndex, payload.cardId);
-    else if (action === 'drawFromDeck') result = room.game.drawFromDeck(playerIndex);
+    if (action === 'drawFromDeck') result = room.game.drawFromDeck(playerIndex);
     else if (action === 'drawFromDiscard') result = room.game.drawFromDiscard(playerIndex, payload.count);
     else if (action === 'playMeld') result = room.game.playMeld(playerIndex, payload.cardIds);
     else if (action === 'discard') result = room.game.discard(playerIndex, payload.cardId);
@@ -150,17 +149,12 @@ function handleGameAction(roomCode, playerIndex, action, payload = {}) {
         });
     }
 
-    // Special logic for initial discard finish
-    if (action === 'initialDiscard' && result && result.allDone) {
+    // Special logic for joker reveal
+    if (action === 'discard' && result && result.jokerRevealData) {
         setTimeout(() => {
-            const penalties = room.game.revealJoker();
             room.playerSockets.forEach((s) => {
                 if (s && s.connected) {
-                    s.emit('jokerRevealed', {
-                        jokerCard: room.game.jokerCard.toJSON(),
-                        jokerRank: room.game.jokerRank,
-                        penalties
-                    });
+                    s.emit('jokerRevealed', result.jokerRevealData);
                 }
             });
             broadcastGameState(roomCode);
