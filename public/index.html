@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remi Indonesia - Online Multiplayer</title>
+    <meta name="description" content="Remi Indonesia - Main kartu Remi online bersama teman!">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- ============ LOBBY SCREEN ============ -->
+    <div id="lobby-screen">
+        <div class="lobby-container">
+            <div class="lobby-header">
+                <h1>🃏 Remi Indonesia</h1>
+                <p class="lobby-subtitle">Online Multiplayer Card Game</p>
+            </div>
+
+            <!-- Main Menu -->
+            <div id="lobby-menu" class="lobby-section">
+                <div class="name-input-group">
+                    <label for="player-name">Nama Kamu</label>
+                    <input type="text" id="player-name" placeholder="Masukkan nama..." maxlength="12"
+                        autocomplete="off">
+                </div>
+                <div class="lobby-buttons">
+                    <button class="btn btn-primary btn-large" id="btn-host-bot">🤖 Play with Bot</button>
+                    <button class="btn btn-primary btn-large" id="btn-host">🎪 Host Game</button>
+                    <button class="btn btn-success btn-large" id="btn-join">🚪 Join Game</button>
+                </div>
+            </div>
+
+            <!-- Join Input -->
+            <div id="join-section" class="lobby-section hidden">
+                <div class="name-input-group">
+                    <label for="room-code-input">Kode Room</label>
+                    <input type="text" id="room-code-input" placeholder="XXXXXX" maxlength="8" autocomplete="off"
+                        style="text-transform: uppercase; text-align: center; font-size: 1.4rem; letter-spacing: 3px;">
+                </div>
+                <div class="lobby-buttons">
+                    <button class="btn btn-success" id="btn-join-confirm">✅ Gabung</button>
+                    <button class="btn btn-danger" id="btn-join-cancel">❌ Batal</button>
+                </div>
+            </div>
+
+            <!-- Waiting Room -->
+            <div id="waiting-room" class="lobby-section hidden">
+                <div class="room-code-display">
+                    <span class="room-code-label">Kode Room</span>
+                    <span class="room-code" id="display-room-code">REM-XXXX</span>
+                    <button class="btn btn-small" id="btn-copy-code" title="Copy">📋</button>
+                </div>
+                <div class="players-list" id="players-list">
+                    <!-- Players will be inserted here -->
+                </div>
+                <div class="waiting-status" id="waiting-status">
+                    Menunggu pemain... (1/4)
+                </div>
+                <button class="btn btn-danger btn-small" id="btn-leave-room">🚪 Keluar Room</button>
+            </div>
+
+            <!-- Rules -->
+            <div class="lobby-rules">
+                <h3>📜 Aturan</h3>
+                <ul>
+                    <li>4 pemain, 1 deck (52 kartu)</li>
+                    <li>Sequence: Angka dgn angka (2-10), Gambar dgn gambar (J-Q-K)</li>
+                    <li>AS hanya untuk Set (3 atau 4 As)</li>
+                    <li>Tutup deck = menang!</li>
+                    <li>Poin: Angka=5, J/Q/K=10, As=15</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ GAME TABLE ============ -->
+    <div id="game-container" class="hidden">
+        <!-- HEADER -->
+        <div id="game-header">
+            <div class="header-title">
+                <h1>🃏 Remi Indonesia</h1>
+            </div>
+            <div class="header-info">
+                <span class="deck-info" id="deck-count">Deck: 0</span>
+                <span class="round-info" id="round-info">Ronde 1</span>
+                <span class="room-code-header" id="header-room-code">REM-XXXX</span>
+            </div>
+            <div class="header-actions"></div>
+        </div>
+
+        <!-- GAME BODY (3x3 Grid) -->
+        <div id="game-body">
+            <!-- Top Opponent -->
+            <div class="opponent-zone" id="opponent-top">
+                <div class="opponent-info">
+                    <span class="opponent-name">Opponent 2</span>
+                    <div class="stats-row">
+                        <span class="opponent-card-count">0</span>
+                        <span class="opponent-score">0 pts</span>
+                    </div>
+                </div>
+                <div class="opponent-cards"></div>
+                <div class="opponent-melds"></div>
+            </div>
+
+            <!-- Left Opponent -->
+            <div class="opponent-zone" id="opponent-left">
+                <div class="opponent-info">
+                    <span class="opponent-name">Opponent 1</span>
+                    <div class="stats-row">
+                        <span class="opponent-card-count">0</span>
+                        <span class="opponent-score">0 pts</span>
+                    </div>
+                </div>
+                <div class="opponent-cards"></div>
+                <div class="opponent-melds"></div>
+            </div>
+
+            <!-- Center: Piles -->
+            <div id="center-area">
+                <div id="joker-display"></div>
+                <div id="draw-pile" class="pile">
+                    <div class="pile-label">Deck</div>
+                    <div class="pile-card-container"></div>
+                    <span class="pile-count">0 kartu</span>
+                </div>
+                <div id="discard-pile-area" class="discard-pile-area">
+                    <div class="pile-label" id="discard-pile-label">Buangan</div>
+                    <div id="discard-pile-cards" class="discard-pile-cards"></div>
+                </div>
+            </div>
+
+            <!-- Right Opponent -->
+            <div class="opponent-zone" id="opponent-right">
+                <div class="opponent-info">
+                    <span class="opponent-name">Opponent 3</span>
+                    <div class="stats-row">
+                        <span class="opponent-card-count">0</span>
+                        <span class="opponent-score">0 pts</span>
+                    </div>
+                </div>
+                <div class="opponent-cards"></div>
+                <div class="opponent-melds"></div>
+            </div>
+
+            <!-- Bottom: Player Zone -->
+            <div id="player-zone">
+                <div id="player-melds"></div>
+                <div id="player-info">
+                    <span class="player-name" id="my-name">Kamu</span>
+                    <span class="player-score" id="my-score">0 pts</span>
+                    <span class="phase-indicator" id="phase-indicator">Menunggu...</span>
+                </div>
+                <div id="player-hand"></div>
+                <div id="player-actions">
+                    <button class="btn btn-success btn-small" id="btn-meld" disabled>🃏 Turun</button>
+                    <button class="btn btn-danger btn-small" id="btn-discard" disabled>📤 Buang Kartu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ TURN NOTIFICATION MODAL ============ -->
+    <div class="modal-overlay" id="turn-modal">
+        <div class="modal compact-modal">
+            <h2 class="text-accent-green" style="margin-bottom: 20px;">Giliranmu!</h2>
+            <p>Sekarang giliran kamu untuk bermain.</p>
+            <div class="modal-actions" style="margin-top: 24px;">
+                <button class="btn btn-primary" id="btn-turn-ok" style="width: 100%;">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ GAME OVER MODAL ============ -->
+    <div class="modal-overlay" id="gameover-modal">
+        <div class="modal">
+            <h2 id="winner-name">🏆 Game Over!</h2>
+            <table class="score-table">
+                <thead>
+                    <tr>
+                        <th>Pemain</th>
+                        <th>Detail</th>
+                        <th>Ronde</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="score-tbody"></tbody>
+            </table>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="btn-next-round">🔁 Ronde Berikutnya</button>
+                <span class="vote-status" id="vote-status"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ TOAST CONTAINER ============ -->
+    <div id="toast-container"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
