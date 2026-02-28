@@ -89,7 +89,9 @@
                 <span class="round-info" id="round-info">Ronde 1</span>
                 <span class="room-code-header" id="header-room-code">REM-XXXX</span>
             </div>
-            <div class="header-actions"></div>
+            <div class="header-actions">
+                <button class="btn btn-icon" id="btn-settings" title="Pengaturan Audio">⚙️</button>
+            </div>
         </div>
 
         <!-- GAME BODY (3x3 Grid) -->
@@ -193,6 +195,33 @@
             <div class="modal-actions">
                 <button class="btn btn-primary" id="btn-next-round">🔁 Ronde Berikutnya</button>
                 <span class="vote-status" id="vote-status"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ SETTINGS MODAL ============ -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal compact-modal">
+            <h2 style="margin-bottom: 20px;">⚙️ Pengaturan Audio</h2>
+
+            <div class="settings-group">
+                <div class="settings-row">
+                    <label for="music-toggle">🎵 Musik (BGM)</label>
+                    <input type="checkbox" id="music-toggle">
+                </div>
+                <input type="range" id="music-slider" min="0" max="1" step="0.05" value="1" class="volume-slider">
+            </div>
+
+            <div class="settings-group" style="margin-top: 20px;">
+                <div class="settings-row">
+                    <label for="sfx-toggle">🔊 Efek Suara (SFX)</label>
+                    <input type="checkbox" id="sfx-toggle" checked>
+                </div>
+                <input type="range" id="sfx-slider" min="0" max="1" step="0.05" value="1" class="volume-slider">
+            </div>
+
+            <div class="modal-actions" style="margin-top: 24px;">
+                <button class="btn btn-primary" id="btn-settings-close" style="width: 100%;">Tutup</button>
             </div>
         </div>
     </div>

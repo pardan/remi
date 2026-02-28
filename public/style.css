@@ -1126,6 +1126,50 @@ body {
     justify-content: center;
 }
 
+/* ===================== SETTINGS MODAL ===================== */
+
+.settings-group {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.settings-row label {
+    font-size: 0.95rem;
+    color: var(--gold-light);
+    font-weight: 600;
+}
+
+.volume-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--glass-bg-dark);
+    height: 6px;
+    border-radius: 3px;
+    outline: none;
+    border: 1px solid var(--glass-border);
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(212, 168, 71, 0.5);
+}
+
 /* ===================== WELCOME SCREEN ===================== */
 
 #welcome-screen {

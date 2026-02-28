@@ -279,6 +279,19 @@ io.on('connection', (socket) => {
     socket.on('discard', (payload) => handleGameAction(socket.roomCode, socket.playerIndex, 'discard', payload));
     socket.on('requestNextRound', () => handleGameAction(socket.roomCode, socket.playerIndex, 'requestNextRound'));
 
+    socket.on('triggerGunshot', () => {
+        if (socket.roomCode) {
+            const room = rooms.get(socket.roomCode);
+            if (room) {
+                room.playerSockets.forEach(s => {
+                    if (s && s.connected) {
+                        s.emit('playGunshot');
+                    }
+                });
+            }
+        }
+    });
+
     // ======= DISCONNECT =======
 
     socket.on('disconnect', () => {

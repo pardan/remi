@@ -19,38 +19,68 @@ class AudioController {
             deal: new Audio('/audio/card_deal.mp3'),
             place: new Audio('/audio/card_place.mp3'),
             select: new Audio('/audio/card_select.mp3'),
-            turn: new Audio('/audio/turn_start.mp3')
+            turn: new Audio('/audio/turn_start.mp3'),
+            gunshot: new Audio('/audio/gunshot.mp3')
         };
 
         // Configure background music
         this.sounds.bgMusic.loop = true;
-        this.sounds.bgMusic.volume = 1;
 
-        // Configure SFX volume
-        this.sounds.deal.volume = 1;
-        this.sounds.place.volume = 1;
-        this.sounds.select.volume = 1;
-        this.sounds.turn.volume = 1;
+        this.musicMuted = true;
+        this.musicVolume = 1;
 
-        this.isMuted = false;
+        this.sfxMuted = false;
+        this.sfxVolume = 1;
+
+        this.applyVolumes();
+
         this._lastPlayed = {};   // Cooldown timestamps per sound
         this._cooldowns = { deal: 80, place: 100, select: 60, turn: 300 };
         this._activeSounds = [];  // Track active clones for cleanup
         this._maxConcurrent = 4;  // Max simultaneous sound clones
     }
 
-    toggleMute() {
-        this.isMuted = !this.isMuted;
-        if (this.isMuted) {
+    applyVolumes() {
+        this.sounds.bgMusic.volume = this.musicVolume;
+        this.sounds.deal.volume = this.sfxVolume;
+        this.sounds.place.volume = this.sfxVolume;
+        this.sounds.select.volume = this.sfxVolume;
+        this.sounds.turn.volume = this.sfxVolume;
+    }
+
+    setMusicVolume(vol) {
+        this.musicVolume = parseFloat(vol);
+        this.applyVolumes();
+    }
+
+    setSfxVolume(vol) {
+        this.sfxVolume = parseFloat(vol);
+        this.applyVolumes();
+    }
+
+    toggleMusicMute(isMuted) {
+        this.musicMuted = isMuted;
+        if (this.musicMuted) {
             this.sounds.bgMusic.pause();
         } else {
             this.sounds.bgMusic.play().catch(() => { });
         }
-        return this.isMuted;
+    }
+
+    toggleSfxMute(isMuted) {
+        this.sfxMuted = isMuted;
     }
 
     play(soundName) {
-        if (this.isMuted || !this.sounds[soundName]) return;
+        if (!this.sounds[soundName]) return;
+
+        if (soundName === 'bgMusic') {
+            if (this.musicMuted) return;
+            this.sounds.bgMusic.play().catch(() => { });
+            return;
+        }
+
+        if (this.sfxMuted) return;
 
         // Cooldown: skip if played too recently
         const now = performance.now();
@@ -69,6 +99,7 @@ class AudioController {
         }
 
         const sound = this.sounds[soundName].cloneNode();
+        // apply current sfxVolume
         sound.volume = this.sounds[soundName].volume;
         sound.play().catch(() => { });
         sound.addEventListener('ended', () => {
@@ -130,6 +161,9 @@ class RemiClient {
         this.isDealing = false;
         this.customHandOrder = null; // Store user's manual sorting preference
         this.myTurnActive = false; // Simple flag to track if it's currently my turn
+
+        this.gunshotTimer = null;
+        this.gunshotFired = false;
 
         this.audio = new AudioController();
 
@@ -325,6 +359,10 @@ class RemiClient {
             document.getElementById('vote-status').textContent = `(${count}/${needed} siap)`;
         });
 
+        this.socket.on('playGunshot', () => {
+            this.audio.play('gunshot');
+        });
+
         this.socket.on('playerDisconnected', ({ playerName }) => {
             this.showToast(`❌ ${playerName} keluar. Room ditutup.`, 'error');
             setTimeout(() => this.showLobbyMenu(), 3000);
@@ -349,23 +387,40 @@ class RemiClient {
         document.getElementById('btn-turn-ok').addEventListener('click', () => {
             this.audio.play('select');
             document.getElementById('turn-modal').classList.remove('active');
+
+            // Start 10s idle timer
+            if (this.gunshotTimer) clearTimeout(this.gunshotTimer);
+            this.gunshotTimer = setTimeout(() => {
+                if (this.gameState && this.gameState.isMyTurn && !this.gunshotFired) {
+                    this.gunshotFired = true;
+                    this.socket.emit('triggerGunshot');
+                }
+            }, 10000);
         });
 
-        // Audio Toggle
-        const btnMute = document.createElement('button');
-        btnMute.id = 'btn-mute';
-        btnMute.className = 'btn btn-icon';
-        btnMute.innerHTML = '🔊';
-        btnMute.title = 'Nyalakan/Matikan Suara';
-        btnMute.style.position = 'absolute';
-        btnMute.style.top = '60px';
-        btnMute.style.left = '12px';
-        btnMute.style.zIndex = '100';
-        document.body.appendChild(btnMute);
+        // Settings Modal Events
+        document.getElementById('btn-settings').addEventListener('click', () => {
+            document.getElementById('settings-modal').classList.add('active');
+        });
 
-        btnMute.addEventListener('click', () => {
-            const isMuted = this.audio.toggleMute();
-            btnMute.innerHTML = isMuted ? '🔇' : '🔊';
+        document.getElementById('btn-settings-close').addEventListener('click', () => {
+            document.getElementById('settings-modal').classList.remove('active');
+        });
+
+        document.getElementById('music-toggle').addEventListener('change', (e) => {
+            this.audio.toggleMusicMute(!e.target.checked);
+        });
+
+        document.getElementById('sfx-toggle').addEventListener('change', (e) => {
+            this.audio.toggleSfxMute(!e.target.checked);
+        });
+
+        document.getElementById('music-slider').addEventListener('input', (e) => {
+            this.audio.setMusicVolume(e.target.value);
+        });
+
+        document.getElementById('sfx-slider').addEventListener('input', (e) => {
+            this.audio.setSfxVolume(e.target.value);
         });
     }
 
@@ -501,6 +556,14 @@ class RemiClient {
         if (!wasMyTurn && this.gameState.isMyTurn) {
             // Turn just started
             this.audio.play('turn');
+            this.gunshotFired = false;
+        }
+
+        if (!this.gameState.isMyTurn) {
+            if (this.gunshotTimer) {
+                clearTimeout(this.gunshotTimer);
+                this.gunshotTimer = null;
+            }
         }
 
         this.detectNewDrawsAndDeal();
