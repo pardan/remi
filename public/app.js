@@ -945,7 +945,7 @@ class RemiClient {
         }
 
         scores.forEach((detail) => {
-            const { playerName, meldedPositive, handPositive, handNegative, tutupDeckBonus, roundScore, totalScore, isWinner } = detail;
+            const { playerName, meldedPositive, handPositive, handNegative, tutupDeckBonus, roundScore, totalScore, isWinner, cekihPenalty } = detail;
             const tr = document.createElement('tr');
             tr.className = isWinner ? 'winner-row' : '';
 
@@ -954,6 +954,7 @@ class RemiClient {
             if (handPositive > 0) breakdown += `<span class="score-pos">Tangan +${handPositive}</span> `;
             if (handNegative < 0) breakdown += `<span class="score-neg">Sisa ${handNegative}</span> `;
             if (tutupDeckBonus > 0) breakdown += `<span class="score-bonus">Tutup +${tutupDeckBonus}</span> `;
+            if (cekihPenalty < 0) breakdown += `<span class="score-neg" style="color:#ff4a5e; font-weight:bold;">Cekih ${cekihPenalty}</span> `;
 
             tr.innerHTML = `
                 <td>${playerName} ${isWinner ? '👑' : ''}</td>

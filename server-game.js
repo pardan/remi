@@ -312,6 +312,7 @@ class ServerGame {
         this.sortHand(this.players[playerId]);
         this.hasDrawn = true;
         this.drawnFromDiscard = true;
+        this.lastDrawnDiscardProvider = discardCards[0].discardedBy; // Cekih tracking
         this.drawnDiscardIds = new Set(taken.map(c => c.id));
         this.meldedThisTurn = false;
         this.usedDrawnDiscardThisTurn = false; // Reset for discard draw
@@ -431,6 +432,8 @@ class ServerGame {
             player.score += jokerPenalty;
         }
 
+        // Tag the card with who discarded it for Cekih
+        card.discardedBy = playerId;
         this.discardPile.push(card);
 
         if (this.deck.length === 0) {
@@ -458,7 +461,19 @@ class ServerGame {
         else if (card.rank === 'A') bonus = 150;
         else if (isFaceRank(card.rank)) bonus = 100;
         else bonus = 50;
-        return this.handleGameEnd(player, bonus, card);
+
+        // Cekih Penalty Logic
+        let cekihDetails = null;
+        if (this.drawnFromDiscard && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
+            const penalty = -bonus; // Cekih penalty is exactly the negative of the win bonus
+            this.players[this.lastDrawnDiscardProvider].score += penalty;
+            cekihDetails = {
+                providerId: this.lastDrawnDiscardProvider,
+                penalty: penalty
+            };
+        }
+
+        return this.handleGameEnd(player, bonus, card, cekihDetails);
     }
 
     handleDeckEmpty() {
@@ -596,13 +611,24 @@ class ServerGame {
         return { playerId: player.id, playerName: player.name, meldedPositive, handPositive, handNegative, tutupDeckBonus: bonus, roundScore, totalScore: player.score + roundScore, isWinner };
     }
 
-    handleGameEnd(winner, bonus = 0, tutupDeckCard = null) {
+    handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null) {
         this.phase = 'gameover';
         this.winner = winner;
         const scores = this.players.map(p => {
             const isWinner = winner && p.id === winner.id;
             const detail = this.calculatePlayerScore(p, isWinner, isWinner ? bonus : 0);
-            p.score += detail.roundScore;
+
+            // Apply Cekih if applicable
+            if (cekihDetails && p.id === cekihDetails.providerId) {
+                detail.cekihPenalty = cekihDetails.penalty;
+                detail.roundScore += cekihDetails.penalty;
+                // The score was already mutated in handleTutupDeck, but totalScore in detail needs updating
+            }
+
+            // Ensure totalScore matches the actual player score
+            detail.totalScore = p.score + detail.roundScore; // p.score is the score BEFORE this round.
+            p.score += detail.roundScore; // Update player's total score
+
             return detail;
         });
         return {
