@@ -457,7 +457,7 @@ class ServerGame {
 
     handleTutupDeck(player, card) {
         let bonus = 0;
-        if (card.isJoker(this)) bonus = 300;
+        if (card.isJoker(this)) bonus = 500;
         else if (card.rank === 'A') bonus = 150;
         else if (isFaceRank(card.rank)) bonus = 100;
         else bonus = 50;

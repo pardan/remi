@@ -360,7 +360,7 @@ class RemiClient {
             this.gameState = gameState;
             this.renderAll();
             if (winner && tutupDeckCard) {
-                const bonusText = tutupDeckCard.rank === this.gameState.jokerRank ? `JOKER! +300`
+                const bonusText = tutupDeckCard.rank === this.gameState.jokerRank ? `JOKER! +500`
                     : tutupDeckCard.rank === 'A' ? `AS! +150`
                         : isFaceRank(tutupDeckCard.rank) ? `${tutupDeckCard.displayName}! +100`
                             : `${tutupDeckCard.displayName}! +50`;

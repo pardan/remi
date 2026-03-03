@@ -43,7 +43,7 @@ Pastikan Anda telah memasang:
 2. **Kombinasi Kartu (Meld)**: Kumpulkan minimal 3 kartu untuk bisa "Turun". Kombinasi bisa berupa *Seri / Run* (Bunga sama, angka berurutan) atau *Set* (Angka/Gambar sama, beda bunga).
 3. **Syarat Turun Pertama**: Untuk turun pertama kali ke meja, Anda Wajib menggunakan Seri / Run, atau set 4 gambar As.
 4. **Giliran Bermain**: Di setiap giliran, Anda HARUS mengambil kartu (dari Deck tertutup ATAU kartu buangan lawan), kemudian membuang 1 kartu.
-5. **Cekih (Penalti Buangan)**: Jika Anda mengambil kartu buangan lawan dan langsung menggunakannya untuk habis/menang (Tutup Deck), maka lawan yang membuang kartu tersebut akan terkena penalti poin (-50 hingga -300 tergantung jenis kartu).
+5. **Cekih (Penalti Buangan)**: Jika Anda mengambil kartu buangan lawan dan langsung menggunakannya untuk habis/menang (Tutup Deck), maka lawan yang membuang kartu tersebut akan terkena penalti poin (-50 hingga -500 tergantung jenis kartu).
 6. **Joker Rule**: Kartu Joker ditaruh terbuka di bawah tumpukan Deck (sebagai acuan kartu liar). Joker bebas diganti apa saja. Hati-hati, Anda tidak boleh sembarangan membuang Joker kecuali rela kena denda poin besar!
 
 ## 💻 Teknologi yang Digunakan
