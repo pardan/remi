@@ -491,7 +491,10 @@ class ServerGame {
     }
 
     handleDeckEmpty() {
-        return this.handleGameEnd(null, 0, null);
+        // If no player has melded at all, it's a deadlock — everyone gets 0
+        const anyoneMelded = this.players.some(p => p.hasMelded);
+        const isDeadlock = !anyoneMelded;
+        return this.handleGameEnd(null, 0, null, null, isDeadlock ? 0 : null);
     }
 
     calcMeldPoints(meld) {
