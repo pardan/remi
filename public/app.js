@@ -918,7 +918,7 @@ class RemiClient {
         const btnMeld = document.getElementById('btn-meld');
         const btnDiscard = document.getElementById('btn-discard');
 
-        btnMeld.disabled = !(isMyTurn && phase === 'meld' && this.selectedCards.size >= 3);
+        btnMeld.disabled = !(isMyTurn && (phase === 'meld' || (phase === 'draw' && s.jokerRevealed && !s.hasDrawn)) && this.selectedCards.size >= 3);
 
         const mustMeldFirst = s.drawnFromDiscard && !s.usedDrawnDiscardThisTurn;
         btnDiscard.disabled = !(isMyTurn && (phase === 'meld' || phase === 'discard') && this.selectedCards.size === 1 && !mustMeldFirst);
