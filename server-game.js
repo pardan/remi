@@ -117,7 +117,22 @@ class ServerGame {
         }
         this.players.forEach(p => this.sortHand(p));
         this.phase = 'draw';
-        this.currentPlayerIndex = 0;
+
+        // Determine first player of the round
+        if (this.round === 1) {
+            this.currentPlayerIndex = 0; // Host or first joined
+        } else {
+            // Player with largest score goes first
+            let maxScore = -Infinity;
+            let firstPlayerIdx = 0;
+            this.players.forEach((p, idx) => {
+                if (p.score > maxScore) {
+                    maxScore = p.score;
+                    firstPlayerIdx = idx;
+                }
+            });
+            this.currentPlayerIndex = firstPlayerIdx;
+        }
     }
 
     // ======= JOKER REVEAL =======

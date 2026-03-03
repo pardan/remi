@@ -27,6 +27,7 @@ class serverBot {
 
     // Helper: call action via the provided callback
     doAction(action, payload) {
+        console.log(`[Bot ${this.name}] Attempting action: ${action}`, payload);
         this.actionCallback(this.playerIndex, action, payload);
     }
 
@@ -35,6 +36,8 @@ class serverBot {
 
         const game = this.room.game;
         if (!game || game.currentPlayerIndex !== this.playerIndex) return;
+
+        console.log(`[Bot ${this.name}] playing turn in phase: ${state.phase}`);
 
         const phase = state.phase;
         const me = game.players[this.playerIndex];
@@ -62,7 +65,7 @@ class serverBot {
         const discardPile = game.discardPile;
         const maxPickup = game.getMaxDiscardPickup();
 
-        if (maxPickup > 0 && discardPile.length > 0) {
+        if (game.jokerRevealed && maxPickup > 0 && discardPile.length > 0) {
             for (let count = 1; count <= maxPickup; count++) {
                 const discards = discardPile.slice(-count);
                 if (game.canMeldWithDiscardCards(me, discards)) {

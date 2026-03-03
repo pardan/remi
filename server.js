@@ -126,6 +126,7 @@ function handleGameAction(roomCode, playerIndex, action, payload = {}) {
     }
 
     if (result && !result.success) {
+        console.log(`[ActionFailed] Player ${playerIndex} (Bot? ${!(!room.playerSockets[playerIndex] || !room.playerSockets[playerIndex].doAction)}) failed to ${action}: ${result.reason}`);
         const s = room.playerSockets[playerIndex];
         if (s && s.connected && !s.doAction) { // Real socket
             s.emit('actionResult', { success: false, reason: result.reason });
