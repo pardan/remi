@@ -74,6 +74,7 @@ class ServerGame {
         this.meldedThisTurn = false;
         this.usedDrawnDiscardThisTurn = false; // New property
         this.drawnDiscardIds = new Set(); // New property
+        this.drawnDiscardCount = 0; // New Cekih restriction property
         this.winner = null;
         this.jokerRank = null;
         this.jokerCard = null;
@@ -98,6 +99,7 @@ class ServerGame {
         this.meldedThisTurn = false;
         this.usedDrawnDiscardThisTurn = false; // Reset for new round
         this.drawnDiscardIds = new Set(); // Reset for new round
+        this.drawnDiscardCount = 0; // Reset for new round
         this.jokerRevealed = false;
         this.initialDiscardCount = 0;
         this.initialPenalties = {};
@@ -169,6 +171,7 @@ class ServerGame {
         this.meldedThisTurn = false;
         this.usedDrawnDiscardThisTurn = false; // Reset for deck draw
         this.drawnDiscardIds = new Set(); // Reset for deck draw
+        this.drawnDiscardCount = 0; // Reset for deck draw
         this.phase = 'meld';
         return { success: true, card: card.toJSON() };
     }
@@ -315,6 +318,7 @@ class ServerGame {
         this.players[playerId].hasDrawnFromDiscardThisRound = true;
         this.lastDrawnDiscardProvider = discardCards[0].discardedBy; // Cekih tracking
         this.drawnDiscardIds = new Set(taken.map(c => c.id));
+        this.drawnDiscardCount = count; // Track how many cards were drawn for Cekih
         this.meldedThisTurn = false;
         this.usedDrawnDiscardThisTurn = false; // Reset for discard draw
         this.phase = 'meld';
@@ -472,7 +476,7 @@ class ServerGame {
 
         // Cekih Penalty Logic
         let cekihDetails = null;
-        if (this.drawnFromDiscard && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
+        if (this.drawnFromDiscard && this.drawnDiscardCount === 1 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
             const penalty = -bonus; // Cekih penalty is exactly the negative of the win bonus
             this.players[this.lastDrawnDiscardProvider].score += penalty;
             cekihDetails = {
@@ -761,6 +765,7 @@ class ServerGame {
         this.meldedThisTurn = false;
         this.usedDrawnDiscardThisTurn = false; // Reset for next turn
         this.drawnDiscardIds = new Set(); // Reset for next turn
+        this.drawnDiscardCount = 0; // Reset for next turn
     }
 
     get currentPlayer() { return this.players[this.currentPlayerIndex]; }
