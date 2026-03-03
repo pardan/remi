@@ -81,6 +81,7 @@ class ServerGame {
         this.jokerRevealed = false;
         this.initialDiscardCount = 0;
         this.initialPenalties = {};
+        this.lastRoundScores = {}; // Stores each player's roundScore from the previous round
     }
 
     // ======= INIT & DEAL =======
@@ -124,12 +125,13 @@ class ServerGame {
         if (this.round === 1) {
             this.currentPlayerIndex = 0; // Host or first joined
         } else {
-            // Player with largest score goes first
-            let maxScore = -Infinity;
+            // Player with highest round score from the PREVIOUS round goes first
+            let maxRoundScore = -Infinity;
             let firstPlayerIdx = 0;
             this.players.forEach((p, idx) => {
-                if (p.score > maxScore) {
-                    maxScore = p.score;
+                const prevRoundScore = this.lastRoundScores[p.id] || 0;
+                if (prevRoundScore > maxRoundScore) {
+                    maxRoundScore = prevRoundScore;
                     firstPlayerIdx = idx;
                 }
             });
@@ -717,6 +719,10 @@ class ServerGame {
             return detail;
         });
         // --- Overtake Rule Implementation End ---
+
+        // Store round scores for next round's first player determination
+        this.lastRoundScores = {};
+        scores.forEach(s => { this.lastRoundScores[s.playerId] = s.roundScore; });
 
         return {
             success: true, gameOver: true,
