@@ -614,7 +614,17 @@ class ServerGame {
     handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null) {
         this.phase = 'gameover';
         this.winner = winner;
-        const scores = this.players.map(p => {
+
+        // --- Overtake Rule Implementation Start ---
+        // 1. Snapshot initial scores
+        const initialScores = {};
+        this.players.forEach(p => initialScores[p.id] = p.score);
+
+        // Find players who already have >= 100 points
+        const targetPlayers = this.players.filter(p => p.score >= 100).map(p => p.id);
+
+        // 2. Calculate preliminary round details
+        const details = this.players.map(p => {
             const isWinner = winner && p.id === winner.id;
             const detail = this.calculatePlayerScore(p, isWinner, isWinner ? bonus : 0);
 
@@ -622,15 +632,43 @@ class ServerGame {
             if (cekihDetails && p.id === cekihDetails.providerId) {
                 detail.cekihPenalty = cekihDetails.penalty;
                 detail.roundScore += cekihDetails.penalty;
-                // The score was already mutated in handleTutupDeck, but totalScore in detail needs updating
             }
 
-            // Ensure totalScore matches the actual player score
-            detail.totalScore = p.score + detail.roundScore; // p.score is the score BEFORE this round.
-            p.score += detail.roundScore; // Update player's total score
+            detail.preliminaryTotal = p.score + detail.roundScore;
+            return detail;
+        });
+
+        // 3. Check for overtakes
+        const resettablePlayers = new Set();
+        targetPlayers.forEach(targetId => {
+            const initialScore = initialScores[targetId];
+
+            // Are they overtaken?
+            const isOvertaken = details.some(d => d.playerId !== targetId && d.preliminaryTotal >= initialScore);
+            if (isOvertaken) {
+                resettablePlayers.add(targetId);
+            }
+        });
+
+        // 4. Apply final scores
+        const scores = details.map(detail => {
+            const p = this.players.find(player => player.id === detail.playerId);
+
+            if (resettablePlayers.has(p.id)) {
+                // Reset to 0
+                detail.totalScore = 0;
+                detail.wasOvertaken = true; // Add flag for UI if needed
+                p.score = 0;
+            } else {
+                detail.totalScore = detail.preliminaryTotal;
+                p.score = detail.totalScore;
+            }
+            delete detail.preliminaryTotal; // Cleanup temporary property
 
             return detail;
         });
+        // --- Overtake Rule Implementation End ---
+
         return {
             success: true, gameOver: true,
             winner: winner ? { id: winner.id, name: winner.name } : null,
