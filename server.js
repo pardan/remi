@@ -55,9 +55,9 @@ function broadcastLobby(roomCode) {
         needed: NUM_PLAYERS
     };
 
-    room.playerSockets.forEach(socket => {
+    room.playerSockets.forEach((socket, index) => {
         if (socket && socket.connected) {
-            socket.emit('lobbyUpdate', lobbyData);
+            socket.emit('lobbyUpdate', { ...lobbyData, isHost: index === 0 });
         }
     });
 }
@@ -267,8 +267,24 @@ io.on('connection', (socket) => {
 
         // Auto-start when 4 players
         if (room.players.length === NUM_PLAYERS) {
-            startGame(code);
+            fillBotsAndStart(code);
         }
+    });
+
+    // HOST STARTS GAME (with 2-3 players + bots)
+    socket.on('hostStartGame', () => {
+        if (!socket.roomCode) return;
+        const room = rooms.get(socket.roomCode);
+        if (!room || room.started) return;
+        if (socket.playerIndex !== 0) {
+            socket.emit('error', { message: 'Hanya host yang bisa memulai game.' });
+            return;
+        }
+        if (room.players.length < 2) {
+            socket.emit('error', { message: 'Minimal 2 pemain untuk memulai.' });
+            return;
+        }
+        fillBotsAndStart(socket.roomCode);
     });
 
     // ======= GAME ACTIONS (Routes to handleGameAction) =======
@@ -364,6 +380,26 @@ io.on('connection', (socket) => {
 });
 
 // ======= START GAME =======
+
+function fillBotsAndStart(roomCode) {
+    const room = rooms.get(roomCode);
+    if (!room) return;
+
+    // Fill remaining slots with bots
+    const botsNeeded = NUM_PLAYERS - room.players.length;
+    if (botsNeeded > 0) {
+        room.isBotMode = true;
+        let botNum = 1;
+        for (let i = room.players.length; i < NUM_PLAYERS; i++) {
+            const bot = new serverBot(`\uD83E\uDD16 Bot ${botNum}`, i, room, (bIdx, axn, pyld) => handleGameAction(roomCode, bIdx, axn, pyld));
+            room.players.push({ name: bot.name, socketId: bot.socketId });
+            room.playerSockets[i] = bot;
+            botNum++;
+        }
+    }
+
+    startGame(roomCode);
+}
 
 function startGame(roomCode) {
     const room = rooms.get(roomCode);

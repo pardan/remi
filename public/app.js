@@ -184,6 +184,7 @@ class RemiClient {
         document.getElementById('btn-join-cancel').addEventListener('click', () => this.hideJoinInput());
         document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
         document.getElementById('btn-leave-room').addEventListener('click', () => this.leaveRoom());
+        document.getElementById('btn-start-game').addEventListener('click', () => this.startGame());
 
         document.getElementById('room-code-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.joinGame();
@@ -239,6 +240,12 @@ class RemiClient {
         this.showLobbyMenu();
     }
 
+    startGame() {
+        this.socket.emit('hostStartGame');
+        document.getElementById('btn-start-game').disabled = true;
+        document.getElementById('btn-start-game').textContent = '⏳ Memulai...';
+    }
+
     showLobbyMenu() {
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('game-container').classList.add('hidden');
@@ -254,7 +261,7 @@ class RemiClient {
         document.getElementById('waiting-room').classList.remove('hidden');
     }
 
-    updatePlayersList(players, count, needed) {
+    updatePlayersList(players, count, needed, isHost = false) {
         const list = document.getElementById('players-list');
         list.innerHTML = '';
         for (let i = 0; i < needed; i++) {
@@ -268,7 +275,22 @@ class RemiClient {
             }
             list.appendChild(slot);
         }
-        document.getElementById('waiting-status').textContent = `Menunggu pemain... (${count}/${needed})`;
+
+        const botsNeeded = needed - count;
+        const statusText = count >= needed
+            ? `Siap mulai! (${count}/${needed})`
+            : `Menunggu pemain... (${count}/${needed})${botsNeeded > 0 && count >= 2 ? ` — ${botsNeeded} slot akan diisi Bot` : ''}`;
+        document.getElementById('waiting-status').textContent = statusText;
+
+        // Show start button for host when 2+ players
+        const startBtn = document.getElementById('btn-start-game');
+        if (isHost && count >= 2) {
+            startBtn.classList.remove('hidden');
+            startBtn.disabled = false;
+            startBtn.textContent = '🎮 Mulai Game';
+        } else {
+            startBtn.classList.add('hidden');
+        }
     }
 
     // ======= SOCKET EVENTS =======
@@ -288,8 +310,8 @@ class RemiClient {
             this.showWaitingRoom();
         });
 
-        this.socket.on('lobbyUpdate', ({ players, count, needed }) => {
-            this.updatePlayersList(players, count, needed);
+        this.socket.on('lobbyUpdate', ({ players, count, needed, isHost }) => {
+            this.updatePlayersList(players, count, needed, isHost);
         });
 
         this.socket.on('error', ({ message }) => {
