@@ -19,7 +19,7 @@ class AudioController {
             deal: new Audio('/audio/card_deal.mp3'),
             place: new Audio('/audio/card_place.mp3'),
             select: new Audio('/audio/card_select.mp3'),
-            turn: new Audio('/audio/turn_start.mp3'),
+            turn: new Audio('/audio/whistle.mp3'),
             gunshot: new Audio('/audio/gunshot.mp3')
         };
 
