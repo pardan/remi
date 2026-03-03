@@ -427,7 +427,9 @@ class ServerGame {
         const card = player.hand.splice(cardIndex, 1)[0];
         let jokerPenalty = 0;
 
-        if (card.isJoker(this)) {
+        // Only apply immediate penalty if the Joker is already revealed.
+        // If discarded before reveal, it will be handled inside revealJoker().
+        if (this.jokerRevealed && card.isJoker(this)) {
             const penaltyValues = { 'A': -150, 'J': -100, 'Q': -100, 'K': -100 };
             jokerPenalty = penaltyValues[card.rank] || -50;
             player.score += jokerPenalty;
