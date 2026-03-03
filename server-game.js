@@ -61,7 +61,7 @@ class ServerGame {
         this.deck = [];
         this.discardPile = [];
         this.players = playerNames.map((name, i) => ({
-            id: i, name, hand: [], hasMelded: false, hasRun: false, score: 0
+            id: i, name, hand: [], hasMelded: false, hasRun: false, score: 0, hasDrawnFromDiscardThisRound: false
         }));
         this.melds = [];
         this.currentPlayerIndex = 0;
@@ -87,7 +87,7 @@ class ServerGame {
     initRound() {
         this.createDeck();
         this.shuffleDeck();
-        this.players.forEach(p => { p.hand = []; p.hasMelded = false; p.hasRun = false; });
+        this.players.forEach(p => { p.hand = []; p.hasMelded = false; p.hasRun = false; p.hasDrawnFromDiscardThisRound = false; });
         this.melds = [];
         this.discardPile = [];
         this.currentPlayerIndex = 0;
@@ -312,6 +312,7 @@ class ServerGame {
         this.sortHand(this.players[playerId]);
         this.hasDrawn = true;
         this.drawnFromDiscard = true;
+        this.players[playerId].hasDrawnFromDiscardThisRound = true;
         this.lastDrawnDiscardProvider = discardCards[0].discardedBy; // Cekih tracking
         this.drawnDiscardIds = new Set(taken.map(c => c.id));
         this.meldedThisTurn = false;
@@ -457,6 +458,11 @@ class ServerGame {
 
     handleTutupDeck(player, card) {
         let bonus = 0;
+        let zeroDiscardBonus = null;
+        if (!player.hasDrawnFromDiscardThisRound) {
+            zeroDiscardBonus = card.isJoker(this) ? 500 : 250;
+        }
+
         if (card.isJoker(this)) bonus = 500;
         else if (card.rank === 'A') bonus = 150;
         else if (isFaceRank(card.rank)) bonus = 100;
@@ -473,7 +479,7 @@ class ServerGame {
             };
         }
 
-        return this.handleGameEnd(player, bonus, card, cekihDetails);
+        return this.handleGameEnd(player, bonus, card, cekihDetails, zeroDiscardBonus);
     }
 
     handleDeckEmpty() {
@@ -611,7 +617,7 @@ class ServerGame {
         return { playerId: player.id, playerName: player.name, meldedPositive, handPositive, handNegative, tutupDeckBonus: bonus, roundScore, totalScore: player.score + roundScore, isWinner };
     }
 
-    handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null) {
+    handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null, zeroDiscardBonus = null) {
         this.phase = 'gameover';
         this.winner = winner;
 
@@ -626,12 +632,24 @@ class ServerGame {
         // 2. Calculate preliminary round details
         const details = this.players.map(p => {
             const isWinner = winner && p.id === winner.id;
-            const detail = this.calculatePlayerScore(p, isWinner, isWinner ? bonus : 0);
 
-            // Apply Cekih if applicable
-            if (cekihDetails && p.id === cekihDetails.providerId) {
-                detail.cekihPenalty = cekihDetails.penalty;
-                detail.roundScore += cekihDetails.penalty;
+            let detail;
+            if (zeroDiscardBonus !== null) {
+                // If special zero discard bonus applies, zero out everything for everyone except winner's bonus
+                detail = this.calculatePlayerScore(p, isWinner, 0); // Call for base structure
+                detail.roundScore = isWinner ? zeroDiscardBonus : 0;
+                detail.handPositive = 0;
+                detail.handNegative = 0;
+                detail.meldedPositive = 0;
+                if (isWinner) detail.tutupDeckBonus = zeroDiscardBonus;
+            } else {
+                detail = this.calculatePlayerScore(p, isWinner, isWinner ? bonus : 0);
+
+                // Apply Cekih if applicable
+                if (cekihDetails && p.id === cekihDetails.providerId) {
+                    detail.cekihPenalty = cekihDetails.penalty;
+                    detail.roundScore += cekihDetails.penalty;
+                }
             }
 
             detail.preliminaryTotal = p.score + detail.roundScore;
@@ -735,6 +753,7 @@ class ServerGame {
             jokerRank: this.jokerRevealed ? this.jokerRank : null,
             jokerRevealed: this.jokerRevealed,
             drawnFromDiscard: this.drawnFromDiscard,
+            hasDrawnFromDiscardThisRound: this.players.find(p => p.id === playerId)?.hasDrawnFromDiscardThisRound || false,
             meldedThisTurn: this.meldedThisTurn,
             usedDrawnDiscardThisTurn: this.usedDrawnDiscardThisTurn, // Expose new property
             hasDrawn: this.hasDrawn,
