@@ -295,7 +295,11 @@ class RemiClient {
         });
 
         this.socket.on('actionResult', ({ success, reason }) => {
-            if (!success) this.showToast(reason, 'error');
+            if (!success) {
+                this.showToast(reason, 'error');
+                this.pendingDiscardDraw = null;
+                this.pendingDeckDraw = null;
+            }
         });
 
         this.socket.on('gameStarted', ({ playerIndex }) => {
@@ -307,7 +311,19 @@ class RemiClient {
         });
 
         this.socket.on('gameState', (state) => {
+            const previousPhase = this.gameState ? this.gameState.phase : null;
             this.gameState = state;
+
+            // Trigger animations on confirmed draw success
+            if (state.isMyTurn && previousPhase === 'draw' && state.phase === 'meld') {
+                if (state.drawnFromDiscard && this.pendingDiscardDraw) {
+                    this.animateCardsToHand(this.pendingDiscardDraw.rect, this.pendingDiscardDraw.count);
+                    this.pendingDiscardDraw = null;
+                } else if (!state.drawnFromDiscard && this.pendingDeckDraw) {
+                    this.animateCardsToHand(this.pendingDeckDraw.rect, this.pendingDeckDraw.count);
+                    this.pendingDeckDraw = null;
+                }
+            }
 
             // Show turn modal and play sound if a normal turn just started
             const isNormalTurn = state.phase === 'draw' || state.phase === 'meld' || state.phase === 'discard';
@@ -428,9 +444,12 @@ class RemiClient {
         if (!this.gameState || !this.gameState.isMyTurn || this.gameState.phase !== 'draw') return;
         this.audio.play('select');
 
-        // Animate from draw pile
+        // Record intent to animate on success
         const drawPileEl = document.getElementById('draw-pile');
-        this.animateCardsToHand(drawPileEl, 1);
+        this.pendingDeckDraw = {
+            rect: drawPileEl.getBoundingClientRect(),
+            count: 1
+        };
 
         this.socket.emit('drawFromDeck');
     }
@@ -463,8 +482,11 @@ class RemiClient {
 
         this.audio.play('select');
 
-        // Animate from clicked discard card
-        this.animateCardsToHand(clickedCard, count);
+        // Record intent to animate on success
+        this.pendingDiscardDraw = {
+            rect: clickedCard.getBoundingClientRect(),
+            count: count
+        };
 
         this.socket.emit('drawFromDiscard', { count });
     }
@@ -963,9 +985,9 @@ class RemiClient {
         setTimeout(() => toast.remove(), 2800);
     }
 
-    animateCardsToHand(sourceEl, count = 1) {
-        if (!sourceEl) return;
-        const rect = sourceEl.getBoundingClientRect();
+    animateCardsToHand(sourceElOrRect, count = 1) {
+        if (!sourceElOrRect) return;
+        const rect = sourceElOrRect instanceof Element ? sourceElOrRect.getBoundingClientRect() : sourceElOrRect;
         const handEl = document.getElementById('player-hand');
         if (!handEl) return;
         const handRect = handEl.getBoundingClientRect();
@@ -1008,6 +1030,28 @@ class RemiClient {
 }
 
 // ======= INIT =======
+function resizeGameWindow() {
+    const gameContainer = document.getElementById('game-container');
+    if (!gameContainer) return;
+
+    // Use zoom scaling for a cleaner layout reflow
+    const baseWidth = 1000;
+    const baseHeight = 700;
+
+    const scaleWidth = window.innerWidth / baseWidth;
+    const scaleHeight = window.innerHeight / baseHeight;
+    let scale = Math.min(scaleWidth, scaleHeight);
+
+    if (scale > 1) scale = 1;
+
+    // Setting zoom reflows the actual element size in the DOM
+    gameContainer.style.zoom = scale;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     window.remiClient = new RemiClient();
+
+    window.addEventListener('resize', resizeGameWindow);
+    window.addEventListener('orientationchange', resizeGameWindow);
+    setTimeout(resizeGameWindow, 100);
 });
