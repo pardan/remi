@@ -599,11 +599,36 @@ class ServerGame {
 
     calculatePlayerScore(player, isWinner, bonus = 0) {
         let meldedPositive = 0, handPositive = 0, handNegative = 0;
-        this.melds.filter(m => m.owner === player.id).forEach(m => { meldedPositive += this.calcMeldPoints(m); });
+        const playerMelds = this.melds.filter(m => m.owner === player.id);
+        playerMelds.forEach(m => { meldedPositive += this.calcMeldPoints(m); });
+
+        // Check if player has a run or 4 Aces (either already melded or in hand)
+        let hasValidBaseMeld = playerMelds.some(m => m.type === 'run' || (m.type === 'set' && m.cards.length === 4 && m.cards.filter(c => !c.isJoker(this)).every(c => c.rank === 'A')));
+
+        let handMelds = [];
+        let singles = [];
 
         if (player.hand.length > 0) {
-            const { melds, singles } = this.findHandMelds(player.hand);
-            melds.forEach(m => { handPositive += this.calcMeldPoints(m); });
+            const result = this.findHandMelds(player.hand);
+            handMelds = result.melds;
+            singles = result.singles;
+
+            // Also check hand melds for run or 4 Aces
+            if (!hasValidBaseMeld) {
+                hasValidBaseMeld = handMelds.some(m => m.type === 'run' || (m.type === 'set' && m.cards.length === 4 && m.cards.filter(c => !c.isJoker(this)).every(c => c.rank === 'A')));
+            }
+
+            // If still no valid base meld, all sets in hand become singles
+            if (!hasValidBaseMeld) {
+                handMelds.forEach(m => {
+                    if (m.type === 'set') {
+                        singles.push(...m.cards);
+                    }
+                });
+                handMelds = handMelds.filter(m => m.type !== 'set'); // Remove them from melds
+            }
+
+            handMelds.forEach(m => { handPositive += this.calcMeldPoints(m); });
 
             singles.forEach(c => {
                 if (c.isJoker(this)) {
