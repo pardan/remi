@@ -1803,3 +1803,126 @@ body {
         margin-top: -36px;
     }
 }
+
+/* ===================== SHUFFLE & DEAL ANIMATIONS ===================== */
+
+/* Deal overlay — covers the game while animation plays */
+#deal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    pointer-events: none;
+    display: none;
+}
+
+#deal-overlay.active {
+    display: block;
+}
+
+/* Shuffle wobble on the deck */
+@keyframes shuffleWobble {
+    0% {
+        transform: rotate(0deg) translateX(0);
+    }
+
+    10% {
+        transform: rotate(-8deg) translateX(-6px);
+    }
+
+    20% {
+        transform: rotate(6deg) translateX(4px);
+    }
+
+    30% {
+        transform: rotate(-5deg) translateX(-3px);
+    }
+
+    40% {
+        transform: rotate(7deg) translateX(5px);
+    }
+
+    50% {
+        transform: rotate(-6deg) translateX(-4px);
+    }
+
+    60% {
+        transform: rotate(4deg) translateX(3px);
+    }
+
+    70% {
+        transform: rotate(-3deg) translateX(-2px);
+    }
+
+    80% {
+        transform: rotate(5deg) translateX(4px);
+    }
+
+    90% {
+        transform: rotate(-2deg) translateX(-1px);
+    }
+
+    100% {
+        transform: rotate(0deg) translateX(0);
+    }
+}
+
+#draw-pile.shuffling .pile-card-container {
+    animation: shuffleWobble 0.5s ease-in-out infinite;
+}
+
+#draw-pile.shuffling {
+    z-index: 1001;
+    position: relative;
+}
+
+/* Shuffle text overlay */
+.shuffle-text {
+    position: fixed;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--gold-light);
+    text-shadow: 0 2px 12px rgba(212, 168, 71, 0.6);
+    z-index: 1002;
+    animation: shuffleTextPulse 0.6s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes shuffleTextPulse {
+    0% {
+        opacity: 0.7;
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+}
+
+/* Flying deal card */
+.deal-flying-card {
+    position: fixed;
+    width: 50px;
+    height: 70px;
+    background: #1a3a5c;
+    border: 2px solid #2a5a8c;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+    pointer-events: none;
+    transition: none;
+}
+
+.deal-flying-card.fly {
+    transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        top 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.15s ease;
+}
+
+.deal-flying-card.arrived {
+    opacity: 0;
+    transform: scale(0.7);
+}

@@ -164,6 +164,8 @@ class RemiClient {
 
         this.gunshotTimer = null;
         this.gunshotFired = false;
+        this.dealAnimationPending = false;
+        this.dealAnimationPlaying = false;
 
         this.audio = new AudioController();
 
@@ -307,12 +309,22 @@ class RemiClient {
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('game-container').classList.remove('hidden');
             document.getElementById('header-room-code').textContent = this.roomCode;
-            this.showToast('🎮 Game dimulai!', 'success');
+            this.dealAnimationPending = true;
         });
 
         this.socket.on('gameState', (state) => {
             const previousPhase = this.gameState ? this.gameState.phase : null;
             this.gameState = state;
+
+            // If deal animation is pending, play it before rendering
+            if (this.dealAnimationPending) {
+                this.dealAnimationPending = false;
+                this.playShuffleAndDealAnimation();
+                return; // Don't render yet, animation will handle it
+            }
+
+            // Skip normal rendering while deal animation is playing
+            if (this.dealAnimationPlaying) return;
 
             // Trigger animations on confirmed draw success
             if (state.isMyTurn && previousPhase === 'draw' && state.phase === 'meld') {
@@ -590,13 +602,17 @@ class RemiClient {
 
         this.detectNewDrawsAndDeal();
 
-        // Dismiss game over modal when a new round starts
+        // Dismiss game over modal when a new round starts + trigger deal animation
         if (this.gameState.phase !== 'gameover') {
             const modal = document.getElementById('gameover-modal');
             if (modal.classList.contains('active')) {
                 modal.classList.remove('active');
                 this.customHandOrder = null; // Reset manual sort for new round
                 this.selectedCards.clear();
+                // Trigger deal animation for new round
+                this.dealAnimationPlaying = true;
+                this.playShuffleAndDealAnimation();
+                return; // Don't render yet, animation callback will call renderAll
             }
         }
 
@@ -984,6 +1000,146 @@ class RemiClient {
         container.appendChild(toast);
         setTimeout(() => toast.classList.add('fade-out'), 2500);
         setTimeout(() => toast.remove(), 2800);
+    }
+
+    // ======= SHUFFLE & DEAL ANIMATION =======
+
+    playShuffleAndDealAnimation() {
+        this.dealAnimationPlaying = true;
+        const overlay = document.getElementById('deal-overlay');
+        overlay.classList.add('active');
+
+        // Clear all card displays so the table looks clean
+        document.getElementById('player-hand').innerHTML = '';
+        document.getElementById('player-melds').innerHTML = '';
+        document.getElementById('discard-pile-cards').innerHTML = '';
+        document.getElementById('joker-display').innerHTML = '';
+        ['opponent-left', 'opponent-top', 'opponent-right'].forEach(id => {
+            const zone = document.getElementById(id);
+            if (zone) {
+                zone.querySelector('.opponent-cards').innerHTML = '';
+                zone.querySelector('.opponent-melds').innerHTML = '';
+            }
+        });
+
+        // Render header and basic layout (but hide hands/cards)
+        this.renderHeader();
+        this.renderPiles();
+
+        // Show "Mengocok..." text and shuffle wobble
+        const drawPile = document.getElementById('draw-pile');
+        drawPile.classList.add('shuffling');
+
+        const shuffleText = document.createElement('div');
+        shuffleText.className = 'shuffle-text';
+        shuffleText.textContent = '🔀 Mengocok kartu...';
+        document.body.appendChild(shuffleText);
+
+        this.audio.play('deal');
+
+        // 1. Shuffle for 2 seconds
+        setTimeout(() => {
+            // Remove shuffle
+            drawPile.classList.remove('shuffling');
+            shuffleText.remove();
+
+            // 2. Start dealing cards one by one
+            this.dealCardsOneByOne(() => {
+                // 3. Animation complete
+                overlay.classList.remove('active');
+                this.dealAnimationPlaying = false;
+                this.showToast('🎮 Game dimulai!', 'success');
+                this.renderAll();
+
+                // 4. Trigger turn modal if it's my turn (after animation)
+                if (this.gameState && this.gameState.isMyTurn) {
+                    this.myTurnActive = true;
+                    document.getElementById('turn-modal').classList.add('active');
+                    this.audio.play('turn');
+                }
+            });
+        }, 2000);
+    }
+
+    dealCardsOneByOne(onComplete) {
+        const drawPile = document.getElementById('draw-pile');
+        const deckRect = drawPile.getBoundingClientRect();
+        const deckCenterX = deckRect.left + deckRect.width / 2;
+        const deckCenterY = deckRect.top + deckRect.height / 2;
+
+        // Get target positions for all 4 players
+        const targets = this.getDealTargetPositions();
+        const totalCards = 28; // 7 cards × 4 players
+        const delayPerCard = 180; // ms between each card
+        let dealt = 0;
+
+        const dealNext = () => {
+            if (dealt >= totalCards) {
+                // Small pause after last card, then complete
+                setTimeout(onComplete, 500);
+                return;
+            }
+
+            const playerIdx = dealt % 4; // Alternate P0 → P1 → P2 → P3
+            const target = targets[playerIdx];
+
+            // Create flying card
+            const flyCard = document.createElement('div');
+            flyCard.className = 'deal-flying-card';
+            flyCard.style.left = `${deckCenterX - 25}px`;
+            flyCard.style.top = `${deckCenterY - 35}px`;
+            document.body.appendChild(flyCard);
+
+            // Play deal sound
+            this.audio.play('deal');
+
+            // Trigger fly animation
+            requestAnimationFrame(() => {
+                flyCard.classList.add('fly');
+                flyCard.style.left = `${target.x - 25}px`;
+                flyCard.style.top = `${target.y - 35}px`;
+            });
+
+            // Remove after arrival
+            setTimeout(() => {
+                flyCard.classList.add('arrived');
+                setTimeout(() => flyCard.remove(), 200);
+            }, 280);
+
+            dealt++;
+            setTimeout(dealNext, delayPerCard);
+        };
+
+        dealNext();
+    }
+
+    getDealTargetPositions() {
+        // Target positions for 4 players: me (bottom), left, top, right
+        // Order: player 0 = me, then opponents in the order they sit
+        const positions = [];
+
+        // Me (bottom - player hand area)
+        const playerHand = document.getElementById('player-hand');
+        if (playerHand) {
+            const r = playerHand.getBoundingClientRect();
+            positions.push({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+        } else {
+            positions.push({ x: window.innerWidth / 2, y: window.innerHeight - 80 });
+        }
+
+        // Opponents: left, top, right (in game order relative to me)
+        const opponentZones = ['opponent-left', 'opponent-top', 'opponent-right'];
+        opponentZones.forEach(zoneId => {
+            const zone = document.getElementById(zoneId);
+            if (zone) {
+                const r = zone.getBoundingClientRect();
+                positions.push({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+            } else {
+                positions.push({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+            }
+        });
+
+        return positions;
     }
 
     animateCardsToHand(sourceElOrRect, count = 1) {
