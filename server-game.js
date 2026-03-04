@@ -513,97 +513,129 @@ class ServerGame {
         return total;
     }
 
-    findHandMelds(hand) {
+    findHandMelds(hand, hasExistingRun = false) {
         const game = this;
-        const remaining = [...hand];
-        const foundMelds = [];
-        const nonJokers = remaining.filter(c => !c.isJoker(game));
-        const jokers = remaining.filter(c => c.isJoker(game));
-        const availableJokers = [...jokers];
+        if (hand.length === 0) return { melds: [], singles: [] };
+
+        // Step 1: Find ALL possible valid melds from hand
+        const allPossibleMelds = [];
+        const getCombos = (arr, size) => {
+            const result = [];
+            const runner = (start, combo) => {
+                if (combo.length === size) { result.push([...combo]); return; }
+                for (let i = start; i < arr.length; i++) runner(i + 1, [...combo, arr[i]]);
+            };
+            runner(0, []);
+            return result;
+        };
+
+        for (let size = 3; size <= Math.min(7, hand.length); size++) {
+            const combos = getCombos(hand, size);
+            for (const combo of combos) {
+                const validation = game.validateMeld(combo);
+                if (validation.valid) {
+                    allPossibleMelds.push({ cards: combo, type: validation.type, ids: new Set(combo.map(c => c.id)) });
+                }
+            }
+        }
+
+        if (allPossibleMelds.length === 0) {
+            return { melds: [], singles: [...hand] };
+        }
+
+        // Step 2: Calculate penalty for remaining cards
+        const calcPenalty = (cards) => {
+            let penalty = 0;
+            cards.forEach(c => {
+                if (c.isJoker(game)) {
+                    const pv = { 'A': 150, 'J': 100, 'Q': 100, 'K': 100 };
+                    penalty += (pv[c.rank] || 50);
+                } else {
+                    penalty += c.value;
+                }
+            });
+            return penalty;
+        };
+
+        // Step 3: Calculate meld points
+        const calcMeldPts = (meld) => {
+            const nonJokers = meld.cards.filter(c => !c.isJoker(game));
+            if (meld.type === 'set') {
+                const rankValue = nonJokers.length > 0 ? nonJokers[0].value : 5;
+                return meld.cards.length * rankValue;
+            } else if (meld.type === 'run') {
+                const group = nonJokers.length > 0 ? getRunGroup(nonJokers[0].rank) : 'number';
+                return meld.cards.length * (group === 'face' ? 10 : 5);
+            }
+            return meld.cards.reduce((s, c) => s + c.value, 0);
+        };
+
+        // Step 4: Recursive search for best non-overlapping combination
+        let bestScore = -Infinity;
+        let bestMelds = [];
+
         const usedIds = new Set();
+        const chosenMelds = [];
 
-        const bySuitAndGroup = {};
-        nonJokers.forEach(c => {
-            if (c.rank === 'A') return;
-            const group = getRunGroup(c.rank);
-            const key = `${c.suit}_${group}`;
-            if (!bySuitAndGroup[key]) bySuitAndGroup[key] = [];
-            bySuitAndGroup[key].push(c);
+        const isRunOrAces = (m) => {
+            return m.type === 'run' || (m.type === 'set' && m.cards.length === 4 && m.cards.filter(c => !c.isJoker(game)).every(c => c.rank === 'A'));
+        };
+
+        const search = (startIdx) => {
+            // Check if this combination has a run (or 4 Aces)
+            const comboHasRun = hasExistingRun || chosenMelds.some(m => isRunOrAces(m));
+
+            // Calculate current score — sets only count if a run exists
+            let meldPoints = 0;
+            const setCardIds = new Set(); // track set cards that don't count without a run
+            chosenMelds.forEach(m => {
+                if (comboHasRun || isRunOrAces(m)) {
+                    meldPoints += calcMeldPts(m);
+                } else {
+                    // No run: set cards become penalty (minus), not meld points
+                    m.ids.forEach(id => setCardIds.add(id));
+                }
+            });
+            // Remaining cards + set cards without run all count as penalty
+            const penaltyCards = hand.filter(c => !usedIds.has(c.id) || setCardIds.has(c.id));
+            const penalty = calcPenalty(penaltyCards);
+            const netScore = meldPoints - penalty;
+
+            if (netScore > bestScore) {
+                bestScore = netScore;
+                bestMelds = [...chosenMelds];
+            }
+
+            // Try adding more melds
+            for (let i = startIdx; i < allPossibleMelds.length; i++) {
+                const meld = allPossibleMelds[i];
+                // Check no overlap with already used cards
+                let overlap = false;
+                for (const id of meld.ids) {
+                    if (usedIds.has(id)) { overlap = true; break; }
+                }
+                if (overlap) continue;
+
+                // Use this meld
+                meld.ids.forEach(id => usedIds.add(id));
+                chosenMelds.push(meld);
+                search(i + 1);
+                chosenMelds.pop();
+                meld.ids.forEach(id => usedIds.delete(id));
+            }
+        };
+
+        search(0);
+
+        // Step 5: Build result from best combination
+        const bestIds = new Set();
+        const resultMelds = bestMelds.map(m => {
+            m.cards.forEach(c => bestIds.add(c.id));
+            return new Meld(m.cards, -1, -1, game);
         });
+        const singles = hand.filter(c => !bestIds.has(c.id));
 
-        for (const key in bySuitAndGroup) {
-            const suitCards = bySuitAndGroup[key].filter(c => !usedIds.has(c.id)).sort((a, b) => a.order - b.order);
-            const unique = []; const seenOrders = new Set();
-            suitCards.forEach(c => { if (!seenOrders.has(c.order)) { seenOrders.add(c.order); unique.push(c); } });
-
-            for (let i = 0; i < unique.length; i++) {
-                const run = [unique[i]]; let lastOrder = unique[i].order;
-                let jokersUsed = [];
-                for (let j = i + 1; j < unique.length; j++) {
-                    const gap = unique[j].order - lastOrder - 1;
-                    if (gap === 0 && !usedIds.has(unique[j].id)) {
-                        run.push(unique[j]); lastOrder = unique[j].order;
-                    } else if (gap > 0 && gap <= availableJokers.length && !usedIds.has(unique[j].id)) {
-                        for (let g = 0; g < gap; g++) {
-                            const jkr = availableJokers.pop();
-                            run.push(jkr);
-                            jokersUsed.push(jkr);
-                        }
-                        run.push(unique[j]); lastOrder = unique[j].order;
-                    } else break;
-                }
-
-                // If run needs more cards to reach 3, and we have min 2 real cards, use jokers to extend
-                let realCount = run.filter(c => !c.isJoker(game)).length;
-                while (run.length < 3 && realCount >= 2 && availableJokers.length > 0) {
-                    const jkr = availableJokers.pop();
-                    run.push(jkr);
-                    jokersUsed.push(jkr);
-                }
-
-                if (run.length >= 3 && realCount >= 2) {
-                    run.forEach(c => usedIds.add(c.id));
-                    foundMelds.push(new Meld(run, -1, -1, game));
-                    i += realCount - 1;
-                } else {
-                    // Revert jokers
-                    jokersUsed.forEach(jkr => availableJokers.push(jkr));
-                }
-            }
-        }
-
-        const remainingNonJokers = nonJokers.filter(c => !usedIds.has(c.id));
-        const byRank = {};
-        remainingNonJokers.forEach(c => { if (!byRank[c.rank]) byRank[c.rank] = []; byRank[c.rank].push(c); });
-
-        for (const rank in byRank) {
-            const group = byRank[rank];
-            const uniqueSuits = []; const seen = new Set();
-            group.forEach(c => { if (!seen.has(c.suit) && !usedIds.has(c.id)) { seen.add(c.suit); uniqueSuits.push(c); } });
-
-            if (uniqueSuits.length >= 2) {
-                const setCards = uniqueSuits.slice(0, Math.min(4, uniqueSuits.length));
-                let jokersUsed = [];
-                let realCount = setCards.length;
-
-                while (setCards.length < 3 && realCount >= 2 && availableJokers.length > 0) {
-                    const jkr = availableJokers.pop();
-                    setCards.push(jkr);
-                    jokersUsed.push(jkr);
-                }
-
-                if (setCards.length >= 3 && realCount >= 2) {
-                    setCards.forEach(c => usedIds.add(c.id));
-                    foundMelds.push(new Meld(setCards, -1, -1, game));
-                } else {
-                    jokersUsed.forEach(jkr => availableJokers.push(jkr));
-                }
-            }
-        }
-
-        // Add remaining jokers back into singles
-        const singles = remaining.filter(c => !usedIds.has(c.id));
-        return { melds: foundMelds, singles };
+        return { melds: resultMelds, singles };
     }
 
     calculatePlayerScore(player, isWinner, bonus = 0) {
@@ -618,7 +650,7 @@ class ServerGame {
         let singles = [];
 
         if (player.hand.length > 0) {
-            const result = this.findHandMelds(player.hand);
+            const result = this.findHandMelds(player.hand, hasValidBaseMeld);
             handMelds = result.melds;
             singles = result.singles;
 
