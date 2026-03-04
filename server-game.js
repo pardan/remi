@@ -697,8 +697,13 @@ class ServerGame {
         targetPlayers.forEach(targetId => {
             const initialScore = initialScores[targetId];
 
-            // Are they overtaken?
-            const isOvertaken = details.some(d => d.playerId !== targetId && d.preliminaryTotal >= initialScore);
+            // Only count overtake if someone who was BELOW this player now reaches or passes them
+            const isOvertaken = details.some(d => {
+                if (d.playerId === targetId) return false;
+                const otherInitialScore = initialScores[d.playerId];
+                // Other player must have been BELOW target before this round
+                return otherInitialScore < initialScore && d.preliminaryTotal >= initialScore;
+            });
             if (isOvertaken) {
                 resettablePlayers.add(targetId);
             }
