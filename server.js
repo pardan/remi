@@ -348,7 +348,7 @@ io.on('connection', (socket) => {
     });
 
     // HOST ADMITS LATE JOIN
-    socket.on('admitResponse', ({ joiningSocketId, action, replaceIndex, scoreRule }) => {
+    socket.on('admitResponse', ({ joiningSocketId, action, replaceIndex }) => {
         const admitRoom = rooms.get(socket.roomCode);
         if (!admitRoom || socket.playerIndex !== admitRoom.hostIndex) return; // Only host
         const room = rooms.get(socket.roomCode);
@@ -366,7 +366,6 @@ io.on('connection', (socket) => {
         }
 
         if (action === 'admit') {
-            const oldPlayer = room.players[replaceIndex];
             const oldSocket = room.playerSockets[replaceIndex];
 
             // Disconnect old socket if it's a real player, or just clean up if bot
@@ -381,7 +380,7 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // Setup new player
+            // Setup new player — inherits score and hand seamlessly
             joiningSocket.join(socket.roomCode);
             joiningSocket.roomCode = socket.roomCode;
             joiningSocket.playerIndex = replaceIndex;
@@ -389,7 +388,7 @@ io.on('connection', (socket) => {
             room.players[replaceIndex] = { name: joiningSocket.pendingName, socketId: joiningSocket.id };
             room.playerSockets[replaceIndex] = joiningSocket;
 
-            // Sync name to game state if game exists
+            // Sync name to game state
             if (room.game && room.game.players[replaceIndex]) {
                 room.game.players[replaceIndex].name = joiningSocket.pendingName;
             }
@@ -397,28 +396,14 @@ io.on('connection', (socket) => {
             delete joiningSocket.pendingName;
             delete joiningSocket.pendingRoomCode;
 
-            // Handle scores based on scoreRule
-            if (scoreRule === 'zero') {
-                if (room.game) room.game.players[replaceIndex].score = 0;
-            } else if (scoreRule === 'reset') {
-                if (room.game) {
-                    room.game.players.forEach(p => p.score = 0);
-                    room.game.round = 1;
-                }
-            }
-            // If 'continue', scores are left as they are on the game object
-
             console.log(`[Room ${socket.roomCode}] ${room.players[replaceIndex].name} admitted replacing Player ${replaceIndex}`);
             joiningSocket.emit('joinedRoom', { roomCode: socket.roomCode, playerIndex: replaceIndex });
-            broadcastLobby(socket.roomCode);
+            joiningSocket.emit('gameStarted', { playerIndex: replaceIndex });
 
-            // Force game restart for the round
-            room.game.initRound();
-            room.game.deal();
-
-            room.playerSockets.forEach((s, idx) => {
-                if (s && s.connected) {
-                    s.emit('gameStarted', { playerIndex: idx });
+            // Notify all players and broadcast current game state (no restart)
+            room.playerSockets.forEach((s, i) => {
+                if (s && s.connected && !s.doAction && i !== replaceIndex) {
+                    s.emit('playerReplaced', { oldName: '(bot)', botName: joiningSocket.pendingName || room.players[replaceIndex].name, playerIndex: replaceIndex });
                 }
             });
             broadcastGameState(socket.roomCode);

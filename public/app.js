@@ -548,12 +548,10 @@ class RemiClient {
         // Admit Late Join Modal Events
         document.getElementById('btn-admit-accept').addEventListener('click', () => {
             const replaceIndex = parseInt(document.getElementById('admit-replace-select').value, 10);
-            const scoreRule = document.querySelector('input[name="admit-score-rule"]:checked').value;
             this.socket.emit('admitResponse', {
                 joiningSocketId: this.pendingJoinSocketId,
                 action: 'admit',
-                replaceIndex,
-                scoreRule
+                replaceIndex
             });
             document.getElementById('admit-modal').style.display = 'none';
             this.pendingJoinSocketId = null;
