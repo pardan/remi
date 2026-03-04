@@ -16,7 +16,7 @@ class AudioController {
     constructor() {
         this.sounds = {
             bgMusic: new Audio('/audio/bg_music.mp3'),
-            deal: new Audio('/audio/card_deal.mp3'),
+            deal: new Audio('/audio/book_page.mp3'),
             place: new Audio('/audio/card_place.mp3'),
             select: new Audio('/audio/card_select.mp3'),
             turn: new Audio('/audio/whistle.mp3'),
@@ -410,6 +410,7 @@ class RemiClient {
         });
 
         this.socket.on('playGunshot', () => {
+            if (this.gameState && this.gameState.phase === 'gameover') return;
             this.audio.play('gunshot');
         });
 
@@ -441,7 +442,7 @@ class RemiClient {
             // Start 10s idle timer
             if (this.gunshotTimer) clearTimeout(this.gunshotTimer);
             this.gunshotTimer = setTimeout(() => {
-                if (this.gameState && this.gameState.isMyTurn && !this.gunshotFired) {
+                if (this.gameState && this.gameState.isMyTurn && !this.gunshotFired && this.gameState.phase !== 'gameover') {
                     this.gunshotFired = true;
                     this.socket.emit('triggerGunshot');
                 }
