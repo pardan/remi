@@ -423,6 +423,30 @@ class RemiClient {
             this.showToast(reason, 'error');
             this.showLobbyMenu();
         });
+
+        // --- Late Join Events ---
+        this.socket.on('lateJoinRequest', ({ playerName, socketId, players }) => {
+            document.getElementById('admit-player-name').textContent = `${playerName} ingin bergabung`;
+            const select = document.getElementById('admit-replace-select');
+            select.innerHTML = '';
+            players.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `Pemain ${p.id + 1}: ${p.name}`;
+                select.appendChild(opt);
+            });
+            this.pendingJoinSocketId = socketId;
+            document.getElementById('admit-modal').style.display = 'flex';
+        });
+
+        this.socket.on('waitingForAdmit', () => {
+            this.showToast('Menunggu persetujuan Room Master...', 'info');
+        });
+
+        this.socket.on('lateJoinRejected', ({ message }) => {
+            this.showToast(message, 'error');
+            this.showLobbyMenu();
+        });
     }
 
     // ======= GAME EVENTS (UI) =======
@@ -456,6 +480,29 @@ class RemiClient {
 
         document.getElementById('btn-settings-close').addEventListener('click', () => {
             document.getElementById('settings-modal').classList.remove('active');
+        });
+
+        // Admit Late Join Modal Events
+        document.getElementById('btn-admit-accept').addEventListener('click', () => {
+            const replaceIndex = parseInt(document.getElementById('admit-replace-select').value, 10);
+            const scoreRule = document.querySelector('input[name="admit-score-rule"]:checked').value;
+            this.socket.emit('admitResponse', {
+                joiningSocketId: this.pendingJoinSocketId,
+                action: 'admit',
+                replaceIndex,
+                scoreRule
+            });
+            document.getElementById('admit-modal').style.display = 'none';
+            this.pendingJoinSocketId = null;
+        });
+
+        document.getElementById('btn-admit-reject').addEventListener('click', () => {
+            this.socket.emit('admitResponse', {
+                joiningSocketId: this.pendingJoinSocketId,
+                action: 'refuse'
+            });
+            document.getElementById('admit-modal').style.display = 'none';
+            this.pendingJoinSocketId = null;
         });
 
         document.getElementById('music-toggle').addEventListener('change', (e) => {

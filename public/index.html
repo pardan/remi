@@ -234,6 +234,37 @@
     <!-- ============ DEAL ANIMATION OVERLAY ============ -->
     <div id="deal-overlay"></div>
 
+    <!-- ============ ADMIT LATE JOIN MODAL ============ -->
+    <div class="modal-overlay" id="admit-modal" style="display: none;">
+        <div class="modal compact-modal">
+            <h2 class="text-accent-yellow" style="margin-bottom: 20px;">Permintaan Bergabung</h2>
+            <p id="admit-player-name" style="font-weight: bold; margin-bottom: 15px;"></p>
+            <p>Pilih pemain/bot yang akan digantikan:</p>
+            <select id="admit-replace-select" class="form-input" style="width: 100%; margin-bottom: 20px;">
+                <!-- Options populated dynamically -->
+            </select>
+            <p>Pilih aturan skor:</p>
+            <div style="text-align: left; margin-bottom: 24px;">
+                <label style="display: block; margin-bottom: 10px;">
+                    <input type="radio" name="admit-score-rule" value="continue" checked>
+                    Lanjutkan skor pemain sebelumnya
+                </label>
+                <label style="display: block; margin-bottom: 10px;">
+                    <input type="radio" name="admit-score-rule" value="zero">
+                    Pemain baru mulai dengan skor 0
+                </label>
+                <label style="display: block;">
+                    <input type="radio" name="admit-score-rule" value="reset">
+                    Reset total game (semua pemain dari 0, ke ronde 1)
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-success" id="btn-admit-accept" style="flex: 1;">✅ Terima</button>
+                <button class="btn btn-danger" id="btn-admit-reject" style="flex: 1;">❌ Tolak</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============ TOAST CONTAINER ============ -->
     <div id="toast-container"></div>
 
