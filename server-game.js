@@ -441,6 +441,19 @@ class ServerGame {
             player.score += jokerPenalty;
         }
 
+        // --- Tris Four Rule ---
+        // Player hasn't melded, hasn't drawn from discard, joker is revealed, hand has exactly 7 cards.
+        if (this.jokerRevealed && !player.hasMelded && !player.hasDrawnFromDiscardThisRound && player.hand.length === 7) {
+            if (this.isTrisFour(player.hand)) {
+                // If they threw a joker just now, revert the penalty because Tris Four grants exactly +300 pure win
+                if (jokerPenalty < 0) {
+                    player.score -= jokerPenalty;
+                    jokerPenalty = 0;
+                }
+                return this.handleGameEnd(player, 0, card, null, null, true);
+            }
+        }
+
         // Tag the card with who discarded it for Cekih
         card.discardedBy = playerId;
         this.discardPile.push(card);
@@ -685,7 +698,7 @@ class ServerGame {
         return { playerId: player.id, playerName: player.name, meldedPositive, handPositive, handNegative, tutupDeckBonus: bonus, roundScore, totalScore: player.score + roundScore, isWinner };
     }
 
-    handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null, zeroDiscardBonus = null) {
+    handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null, zeroDiscardBonus = null, isTrisFour = false) {
         this.phase = 'gameover';
         this.winner = winner;
 
@@ -702,7 +715,19 @@ class ServerGame {
             const isWinner = winner && p.id === winner.id;
 
             let detail;
-            if (zeroDiscardBonus !== null) {
+            // Handle Tris Four
+            if (isTrisFour) {
+                detail = {
+                    playerId: p.id,
+                    playerName: p.name,
+                    meldedPositive: 0,
+                    handPositive: 0,
+                    handNegative: 0,
+                    tutupDeckBonus: isWinner ? 300 : 0,
+                    roundScore: isWinner ? 300 : 0,
+                    isWinner
+                };
+            } else if (zeroDiscardBonus !== null) {
                 // If special zero discard bonus applies, zero out everything for everyone except winner's bonus
                 detail = this.calculatePlayerScore(p, isWinner, 0); // Call for base structure
                 detail.roundScore = isWinner ? zeroDiscardBonus : 0;
@@ -819,6 +844,7 @@ class ServerGame {
     // Get state visible to a specific player
     getStateForPlayer(playerId) {
         return {
+            id: this.id,
             phase: this.phase,
             round: this.round,
             currentPlayerIndex: this.currentPlayerIndex,
@@ -851,6 +877,36 @@ class ServerGame {
             })),
             initialPenalties: this.initialPenalties
         };
+    }
+
+    isTrisFour(hand) {
+        if (hand.length !== 7) return false;
+
+        const getCombos = (arr, size) => {
+            const result = [];
+            const runner = (start, combo) => {
+                if (combo.length === size) { result.push([...combo]); return; }
+                for (let i = start; i < arr.length; i++) runner(i + 1, [...combo, arr[i]]);
+            };
+            runner(0, []);
+            return result;
+        };
+
+        const combos3 = getCombos(hand, 3);
+        const game = this;
+        for (const combo3 of combos3) {
+            const combo3Ids = new Set(combo3.map(c => c.id));
+            const combo4 = hand.filter(c => !combo3Ids.has(c.id));
+
+            const val3 = game.validateMeld(combo3);
+            const val4 = game.validateMeld(combo4);
+
+            // BOTH must be valid SETS
+            if (val3.valid && val3.type === 'set' && val4.valid && val4.type === 'set') {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
