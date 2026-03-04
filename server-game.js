@@ -491,9 +491,17 @@ class ServerGame {
 
         // Cekih Penalty Logic
         let cekihDetails = null;
+        // System 1: Ambil 1 kartu → tutup deck → pembuang kena cekih
         if (this.drawnFromDiscard && this.drawnDiscardCount === 1 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
-            const penalty = -bonus; // Cekih penalty is exactly the negative of the win bonus
-            // Note: Do NOT apply penalty to score here — handleGameEnd will apply it via roundScore
+            const penalty = -bonus;
+            cekihDetails = {
+                providerId: this.lastDrawnDiscardProvider,
+                penalty: penalty
+            };
+        }
+        // System 2: Ambil 2 kartu → tutup deck → pembuang kartu paling bawah kena cekih
+        if (!cekihDetails && this.drawnFromDiscard && this.drawnDiscardCount === 2 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
+            const penalty = -bonus;
             cekihDetails = {
                 providerId: this.lastDrawnDiscardProvider,
                 penalty: penalty
