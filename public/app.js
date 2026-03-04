@@ -415,8 +415,11 @@ class RemiClient {
         });
 
         this.socket.on('playerDisconnected', ({ playerName }) => {
-            this.showToast(`❌ ${playerName} keluar. Room ditutup.`, 'error');
-            setTimeout(() => this.showLobbyMenu(), 3000);
+            this.showToast(`❌ ${playerName} keluar dari room.`, 'warning');
+        });
+
+        this.socket.on('playerReplaced', ({ oldName, botName, playerIndex }) => {
+            this.showToast(`🤖 ${oldName} diganti oleh Bot. Game tetap lanjut!`, 'info');
         });
 
         this.socket.on('roomClosed', ({ reason }) => {

@@ -57,7 +57,7 @@ function broadcastLobby(roomCode) {
 
     room.playerSockets.forEach((socket, index) => {
         if (socket && socket.connected) {
-            socket.emit('lobbyUpdate', { ...lobbyData, isHost: index === 0 });
+            socket.emit('lobbyUpdate', { ...lobbyData, isHost: index === room.hostIndex });
         }
     });
 }
@@ -78,6 +78,47 @@ function cleanupRoom(roomCode) {
 
     rooms.delete(roomCode);
     console.log(`[Room ${roomCode}] Closed`);
+}
+
+function replacePlayerWithBot(roomCode, playerIndex) {
+    const room = rooms.get(roomCode);
+    if (!room || !room.game) return;
+
+    const oldName = room.players[playerIndex]?.name || `Player ${playerIndex}`;
+    const botName = `🤖 ${oldName}`;
+
+    // Create bot at the same index
+    const bot = new serverBot(botName, playerIndex, room, (bIdx, axn, pyld) => handleGameAction(roomCode, bIdx, axn, pyld));
+    room.players[playerIndex] = { name: botName, socketId: bot.socketId };
+    room.playerSockets[playerIndex] = bot;
+    room.isBotMode = true;
+
+    // Sync name to game state
+    if (room.game.players[playerIndex]) {
+        room.game.players[playerIndex].name = botName;
+    }
+
+    // If the host left, transfer host to first available human player
+    if (room.hostIndex === playerIndex) {
+        const newHostIdx = room.playerSockets.findIndex((s, i) => s && s.connected && !s.doAction && i !== playerIndex);
+        if (newHostIdx !== -1) {
+            room.hostIndex = newHostIdx;
+            console.log(`[Room ${roomCode}] Host transferred to Player ${newHostIdx} (${room.players[newHostIdx].name})`);
+        }
+    }
+
+    // Notify remaining human players
+    room.playerSockets.forEach((s, i) => {
+        if (s && s.connected && !s.doAction) {
+            s.emit('playerReplaced', { oldName, botName, playerIndex });
+        }
+    });
+
+    console.log(`[Room ${roomCode}] ${oldName} replaced by bot at index ${playerIndex}`);
+
+    // If the game is in 'gameover' phase, the bot's emit handler will auto-vote for next round
+    // Otherwise, broadcast state so the bot can play if it's their turn
+    broadcastGameState(roomCode);
 }
 
 // ======= GAME ACTION HANDLER (Used by Sockets & Bots) =======
@@ -181,7 +222,8 @@ io.on('connection', (socket) => {
             playerSockets: [socket, null, null, null],
             game: null,
             started: false,
-            isBotMode: false
+            isBotMode: false,
+            hostIndex: 0
         };
 
         rooms.set(roomCode, room);
@@ -207,7 +249,8 @@ io.on('connection', (socket) => {
             playerSockets: [socket, null, null, null],
             game: null,
             started: false,
-            isBotMode: true
+            isBotMode: true,
+            hostIndex: 0
         };
 
         rooms.set(roomCode, room);
@@ -246,7 +289,7 @@ io.on('connection', (socket) => {
         }
         if (room.started) {
             // New Logic: Ask Host to admit
-            const hostSocket = room.playerSockets[0];
+            const hostSocket = room.playerSockets[room.hostIndex];
             if (hostSocket && hostSocket.connected && !hostSocket.doAction) { // Ensure host is a real player
                 hostSocket.emit('lateJoinRequest', {
                     playerName,
@@ -291,7 +334,7 @@ io.on('connection', (socket) => {
         if (!socket.roomCode) return;
         const room = rooms.get(socket.roomCode);
         if (!room || room.started) return;
-        if (socket.playerIndex !== 0) {
+        if (socket.playerIndex !== room.hostIndex) {
             socket.emit('error', { message: 'Hanya host yang bisa memulai game.' });
             return;
         }
@@ -304,7 +347,8 @@ io.on('connection', (socket) => {
 
     // HOST ADMITS LATE JOIN
     socket.on('admitResponse', ({ joiningSocketId, action, replaceIndex, scoreRule }) => {
-        if (socket.playerIndex !== 0) return; // Only host
+        const admitRoom = rooms.get(socket.roomCode);
+        if (!admitRoom || socket.playerIndex !== admitRoom.hostIndex) return; // Only host
         const room = rooms.get(socket.roomCode);
         if (!room) return;
 
@@ -406,19 +450,23 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`[Disconnect] ${socket.id}`);
         if (socket.roomCode) {
-            const room = rooms.get(socket.roomCode);
+            const roomCode = socket.roomCode;
+            const room = rooms.get(roomCode);
             if (room) {
                 const playerName = room.players[socket.playerIndex]?.name || 'Unknown';
-                console.log(`[Room ${socket.roomCode}] ${playerName} disconnected`);
+                console.log(`[Room ${roomCode}] ${playerName} disconnected`);
 
                 if (room.started) {
-                    // Game in progress — notify and close room
-                    room.playerSockets.forEach((s, i) => {
-                        if (s && s.connected && i !== socket.playerIndex && !s.doAction) {
-                            s.emit('playerDisconnected', { playerName });
-                        }
-                    });
-                    cleanupRoom(socket.roomCode);
+                    // Game in progress — check if any human players would remain
+                    const remainingHumans = room.playerSockets.filter((s, i) => s && s.connected && !s.doAction && i !== socket.playerIndex);
+
+                    if (remainingHumans.length === 0) {
+                        // No humans left — close room
+                        cleanupRoom(roomCode);
+                    } else {
+                        // Replace disconnected player with bot
+                        replacePlayerWithBot(roomCode, socket.playerIndex);
+                    }
                 } else {
                     // In lobby — remove player
                     room.playerSockets[socket.playerIndex] = null;
@@ -432,9 +480,9 @@ io.on('connection', (socket) => {
                     });
 
                     if (room.players.length === 0) {
-                        rooms.delete(socket.roomCode);
+                        rooms.delete(roomCode);
                     } else {
-                        broadcastLobby(socket.roomCode);
+                        broadcastLobby(roomCode);
                     }
                 }
             }
@@ -443,17 +491,19 @@ io.on('connection', (socket) => {
 
     socket.on('leaveRoom', () => {
         if (socket.roomCode) {
-            const room = rooms.get(socket.roomCode);
+            const roomCode = socket.roomCode;
+            const room = rooms.get(roomCode);
             if (room && room.started) {
-                const playerName = room.players[socket.playerIndex]?.name || 'Unknown';
-                room.playerSockets.forEach((s, i) => {
-                    if (s && s.connected && i !== socket.playerIndex && !s.doAction) {
-                        s.emit('playerDisconnected', { playerName });
-                    }
-                });
-                cleanupRoom(socket.roomCode);
+                // Game in progress — check if any human players would remain
+                const remainingHumans = room.playerSockets.filter((s, i) => s && s.connected && !s.doAction && i !== socket.playerIndex);
+
+                if (remainingHumans.length === 0) {
+                    cleanupRoom(roomCode);
+                } else {
+                    replacePlayerWithBot(roomCode, socket.playerIndex);
+                }
             } else if (room) {
-                socket.leave(socket.roomCode);
+                socket.leave(roomCode);
                 room.playerSockets[socket.playerIndex] = null;
                 room.players.splice(socket.playerIndex, 1);
                 room.playerSockets = room.playerSockets.filter(Boolean);
@@ -462,8 +512,8 @@ io.on('connection', (socket) => {
                     const s = room.playerSockets[i];
                     if (s) s.playerIndex = i;
                 });
-                if (room.players.length === 0) rooms.delete(socket.roomCode);
-                else broadcastLobby(socket.roomCode);
+                if (room.players.length === 0) rooms.delete(roomCode);
+                else broadcastLobby(roomCode);
             }
             delete socket.roomCode;
             delete socket.playerIndex;
