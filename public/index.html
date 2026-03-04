@@ -22,11 +22,6 @@
 
             <!-- Main Menu -->
             <div id="lobby-menu" class="lobby-section">
-                <div class="name-input-group">
-                    <label for="player-name">Nama Kamu</label>
-                    <input type="text" id="player-name" placeholder="Masukkan nama..." maxlength="12"
-                        autocomplete="off">
-                </div>
                 <div class="lobby-buttons">
                     <button class="btn btn-primary btn-large" id="btn-host-bot">🤖 Play with Bot</button>
                     <button class="btn btn-primary btn-large" id="btn-host">🎪 Host Game</button>
@@ -34,9 +29,40 @@
                 </div>
             </div>
 
+            <!-- Bot Mode Section -->
+            <div id="bot-section" class="lobby-section hidden">
+                <div class="name-input-group">
+                    <label for="bot-player-name">Nama Kamu</label>
+                    <input type="text" id="bot-player-name" placeholder="Masukkan nama..." maxlength="12"
+                        autocomplete="off">
+                </div>
+                <div class="lobby-buttons">
+                    <button class="btn btn-primary" id="btn-bot-confirm">🤖 Mulai</button>
+                    <button class="btn btn-danger" id="btn-bot-cancel">❌ Batal</button>
+                </div>
+            </div>
+
+            <!-- Host Game Section -->
+            <div id="host-section" class="lobby-section hidden">
+                <div class="name-input-group">
+                    <label for="host-player-name">Nama Kamu</label>
+                    <input type="text" id="host-player-name" placeholder="Masukkan nama..." maxlength="12"
+                        autocomplete="off">
+                </div>
+                <div class="lobby-buttons">
+                    <button class="btn btn-primary" id="btn-host-confirm">🎪 Buat Room</button>
+                    <button class="btn btn-danger" id="btn-host-cancel">❌ Batal</button>
+                </div>
+            </div>
+
             <!-- Join Input -->
             <div id="join-section" class="lobby-section hidden">
                 <div class="name-input-group">
+                    <label for="join-player-name">Nama Kamu</label>
+                    <input type="text" id="join-player-name" placeholder="Masukkan nama..." maxlength="12"
+                        autocomplete="off">
+                </div>
+                <div class="name-input-group" style="margin-top: 12px;">
                     <label for="room-code-input">Kode Room</label>
                     <input type="text" id="room-code-input" placeholder="XXXXXX" maxlength="8" autocomplete="off"
                         style="text-transform: uppercase; text-align: center; font-size: 1.4rem; letter-spacing: 3px;">

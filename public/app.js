@@ -177,51 +177,74 @@ class RemiClient {
     // ======= LOBBY =======
 
     bindLobbyEvents() {
-        document.getElementById('btn-host-bot').addEventListener('click', () => this.hostBotGame());
-        document.getElementById('btn-host').addEventListener('click', () => this.hostGame());
-        document.getElementById('btn-join').addEventListener('click', () => this.showJoinInput());
-        document.getElementById('btn-join-confirm').addEventListener('click', () => this.joinGame());
-        document.getElementById('btn-join-cancel').addEventListener('click', () => this.hideJoinInput());
-        document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
-        document.getElementById('btn-leave-room').addEventListener('click', () => this.leaveRoom());
-        document.getElementById('btn-start-game').addEventListener('click', () => this.startGame());
+        // Main menu buttons -> show sub-sections
+        document.getElementById('btn-host-bot').addEventListener('click', () => this.showBotSection());
+        document.getElementById('btn-host').addEventListener('click', () => this.showHostSection());
+        document.getElementById('btn-join').addEventListener('click', () => this.showJoinSection());
 
+        // Bot section
+        document.getElementById('btn-bot-confirm').addEventListener('click', () => this.hostBotGame());
+        document.getElementById('btn-bot-cancel').addEventListener('click', () => this.showLobbyMenu());
+        document.getElementById('bot-player-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.hostBotGame();
+        });
+
+        // Host section
+        document.getElementById('btn-host-confirm').addEventListener('click', () => this.hostGame());
+        document.getElementById('btn-host-cancel').addEventListener('click', () => this.showLobbyMenu());
+        document.getElementById('host-player-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.hostGame();
+        });
+
+        // Join section
+        document.getElementById('btn-join-confirm').addEventListener('click', () => this.joinGame());
+        document.getElementById('btn-join-cancel').addEventListener('click', () => this.showLobbyMenu());
+        document.getElementById('join-player-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') document.getElementById('room-code-input').focus();
+        });
         document.getElementById('room-code-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.joinGame();
         });
-        document.getElementById('player-name').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') document.getElementById('btn-host').click();
-        });
+
+        // Waiting room
+        document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
+        document.getElementById('btn-leave-room').addEventListener('click', () => this.leaveRoom());
+        document.getElementById('btn-start-game').addEventListener('click', () => this.startGame());
     }
 
-    getPlayerName() {
-        const name = document.getElementById('player-name').value.trim();
-        return name || `Pemain${Math.floor(Math.random() * 999)}`;
+    showBotSection() {
+        document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('bot-section').classList.remove('hidden');
+        document.getElementById('bot-player-name').focus();
+    }
+
+    showHostSection() {
+        document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('host-section').classList.remove('hidden');
+        document.getElementById('host-player-name').focus();
+    }
+
+    showJoinSection() {
+        document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('join-section').classList.remove('hidden');
+        document.getElementById('join-player-name').focus();
     }
 
     hostBotGame() {
-        const name = this.getPlayerName();
+        const name = document.getElementById('bot-player-name').value.trim();
+        if (!name) { this.showToast('Masukkan nama kamu!', 'error'); return; }
         this.socket.emit('hostBotGame', { playerName: name });
     }
 
     hostGame() {
-        const name = this.getPlayerName();
+        const name = document.getElementById('host-player-name').value.trim();
+        if (!name) { this.showToast('Masukkan nama kamu!', 'error'); return; }
         this.socket.emit('hostGame', { playerName: name });
     }
 
-    showJoinInput() {
-        document.getElementById('lobby-menu').classList.add('hidden');
-        document.getElementById('join-section').classList.remove('hidden');
-        document.getElementById('room-code-input').focus();
-    }
-
-    hideJoinInput() {
-        document.getElementById('join-section').classList.add('hidden');
-        document.getElementById('lobby-menu').classList.remove('hidden');
-    }
-
     joinGame() {
-        const name = this.getPlayerName();
+        const name = document.getElementById('join-player-name').value.trim();
+        if (!name) { this.showToast('Masukkan nama kamu!', 'error'); return; }
         const code = document.getElementById('room-code-input').value.trim();
         if (!code) { this.showToast('Masukkan kode room!', 'error'); return; }
         this.socket.emit('joinGame', { playerName: name, roomCode: code });
@@ -250,6 +273,8 @@ class RemiClient {
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('game-container').classList.add('hidden');
         document.getElementById('lobby-menu').classList.remove('hidden');
+        document.getElementById('bot-section').classList.add('hidden');
+        document.getElementById('host-section').classList.add('hidden');
         document.getElementById('join-section').classList.add('hidden');
         document.getElementById('waiting-room').classList.add('hidden');
         document.getElementById('gameover-modal').classList.remove('active');
@@ -257,6 +282,8 @@ class RemiClient {
 
     showWaitingRoom() {
         document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('bot-section').classList.add('hidden');
+        document.getElementById('host-section').classList.add('hidden');
         document.getElementById('join-section').classList.add('hidden');
         document.getElementById('waiting-room').classList.remove('hidden');
     }
