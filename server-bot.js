@@ -114,6 +114,12 @@ class serverBot {
             }
         }
 
+        // Safety valve: if drew from discard but can't use it in a meld, force unblock
+        if (game.drawnFromDiscard && !game.usedDrawnDiscardThisTurn) {
+            console.log(`[Bot ${this.name}] SAFETY: stuck with drawn discard card, force unblocking`);
+            game.usedDrawnDiscardThisTurn = true;
+        }
+
         // If no more melds to play, proceed to discard
         if (!melded || game.phase === 'discard' || game.phase === 'meld') {
             if (game.phase === 'meld') {
@@ -182,13 +188,11 @@ class serverBot {
         validMelds.sort((a, b) => this.calcMeldPoints(b, game) - this.calcMeldPoints(a, game));
 
         // Enforce the rule: if drawn from discard, and haven't used any drawn cards yet, MUST play a meld containing drawn cards
-        if (game.drawnFromDiscard) {
-            const drawnCardsInHandCount = player.hand.filter(c => game.drawnDiscardIds.has(c.id)).length;
-            // If all drawn cards are still in hand, it means we haven't used any of them yet
-            if (drawnCardsInHandCount === game.drawnDiscardIds.size) {
-                const mandatoryMelds = validMelds.filter(meld => meld.some(c => game.drawnDiscardIds.has(c.id)));
-                if (mandatoryMelds.length > 0) return mandatoryMelds;
-            }
+        if (game.drawnFromDiscard && !game.usedDrawnDiscardThisTurn) {
+            const mandatoryMelds = validMelds.filter(meld => meld.some(c => game.drawnDiscardIds.has(c.id)));
+            if (mandatoryMelds.length > 0) return mandatoryMelds;
+            // No valid meld with drawn card — return empty so bot doesn't try non-mandatory melds first
+            return [];
         }
 
         return validMelds;
