@@ -146,7 +146,7 @@ class ServerGame {
         const penalties = [];
         this.discardPile.forEach((card, idx) => {
             if (card.rank === this.jokerRank) {
-                const playerId = idx;
+                const playerId = card.discardedBy != null ? card.discardedBy : idx;
                 const penaltyValues = { 'A': -150, 'J': -100, 'Q': -100, 'K': -100 };
                 const penalty = penaltyValues[card.rank] || -50;
                 this.initialPenalties[playerId] = penalty;
