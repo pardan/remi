@@ -493,7 +493,7 @@ class ServerGame {
         let cekihDetails = null;
         if (this.drawnFromDiscard && this.drawnDiscardCount === 1 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
             const penalty = -bonus; // Cekih penalty is exactly the negative of the win bonus
-            this.players[this.lastDrawnDiscardProvider].score += penalty;
+            // Note: Do NOT apply penalty to score here — handleGameEnd will apply it via roundScore
             cekihDetails = {
                 providerId: this.lastDrawnDiscardProvider,
                 penalty: penalty
