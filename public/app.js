@@ -338,6 +338,16 @@ class RemiClient {
             const previousPhase = this.gameState ? this.gameState.phase : null;
             this.gameState = state;
 
+            // Show/hide host controls in settings modal (must run before early returns)
+            const hostControls = document.getElementById('host-controls');
+            if (hostControls) {
+                if (state.isHost) {
+                    hostControls.classList.remove('hidden');
+                } else {
+                    hostControls.classList.add('hidden');
+                }
+            }
+
             // If deal animation is pending, play it before rendering
             if (this.dealAnimationPending) {
                 this.dealAnimationPending = false;
@@ -427,6 +437,14 @@ class RemiClient {
             this.showLobbyMenu();
         });
 
+        this.socket.on('roundRestarted', () => {
+            this.showToast('🔄 Room Master me-restart round!', 'info');
+        });
+
+        this.socket.on('gameRestarted', () => {
+            this.showToast('🔁 Room Master me-restart game! Semua skor direset.', 'info');
+        });
+
         // --- Late Join Events ---
         this.socket.on('lateJoinRequest', ({ playerName, socketId, players }) => {
             document.getElementById('admit-player-name').textContent = `${playerName} ingin bergabung`;
@@ -483,6 +501,21 @@ class RemiClient {
 
         document.getElementById('btn-settings-close').addEventListener('click', () => {
             document.getElementById('settings-modal').classList.remove('active');
+        });
+
+        // Host Restart Controls
+        document.getElementById('btn-restart-round').addEventListener('click', () => {
+            if (confirm('Yakin ingin restart round ini? Kartu akan dibagikan ulang, skor tetap.')) {
+                this.socket.emit('hostRestartRound');
+                document.getElementById('settings-modal').classList.remove('active');
+            }
+        });
+
+        document.getElementById('btn-restart-game').addEventListener('click', () => {
+            if (confirm('Yakin ingin restart game? Semua skor akan direset ke 0!')) {
+                this.socket.emit('hostRestartGame');
+                document.getElementById('settings-modal').classList.remove('active');
+            }
         });
 
         // Admit Late Join Modal Events

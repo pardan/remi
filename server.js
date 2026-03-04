@@ -39,7 +39,9 @@ function broadcastGameState(roomCode) {
 
     room.playerSockets.forEach((socket, index) => {
         if (socket && socket.connected) {
-            socket.emit('gameState', room.game.getStateForPlayer(index));
+            const state = room.game.getStateForPlayer(index);
+            state.isHost = (index === room.hostIndex);
+            socket.emit('gameState', state);
         }
     });
 }
@@ -443,6 +445,50 @@ io.on('connection', (socket) => {
                 });
             }
         }
+    });
+
+    // HOST: RESTART ROUND (re-deal, keep scores and round number)
+    socket.on('hostRestartRound', () => {
+        if (!socket.roomCode) return;
+        const room = rooms.get(socket.roomCode);
+        if (!room || !room.game) return;
+        if (socket.playerIndex !== room.hostIndex) return;
+
+        console.log(`[Room ${socket.roomCode}] Host restarted round`);
+        room.game.initRound();
+        room.game.deal();
+        room.nextRoundVotes = null;
+
+        room.playerSockets.forEach((s, idx) => {
+            if (s && s.connected) {
+                s.emit('roundRestarted');
+                s.emit('gameStarted', { playerIndex: idx });
+            }
+        });
+        broadcastGameState(socket.roomCode);
+    });
+
+    // HOST: RESTART GAME (reset all scores, round 1)
+    socket.on('hostRestartGame', () => {
+        if (!socket.roomCode) return;
+        const room = rooms.get(socket.roomCode);
+        if (!room || !room.game) return;
+        if (socket.playerIndex !== room.hostIndex) return;
+
+        console.log(`[Room ${socket.roomCode}] Host restarted game`);
+        room.game.players.forEach(p => p.score = 0);
+        room.game.round = 1;
+        room.game.initRound();
+        room.game.deal();
+        room.nextRoundVotes = null;
+
+        room.playerSockets.forEach((s, idx) => {
+            if (s && s.connected) {
+                s.emit('gameRestarted');
+                s.emit('gameStarted', { playerIndex: idx });
+            }
+        });
+        broadcastGameState(socket.roomCode);
     });
 
     // ======= DISCONNECT =======

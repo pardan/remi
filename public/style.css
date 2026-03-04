@@ -171,6 +171,12 @@ body {
     color: var(--accent-green);
 }
 
+.btn-warning {
+    background: rgba(255, 159, 67, 0.2);
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+}
+
 .btn-small {
     padding: 5px 12px;
     font-size: 0.75rem;
