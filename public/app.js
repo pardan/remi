@@ -834,6 +834,16 @@ class RemiClient {
             countEl.textContent = `${player.cardCount} 🃏`;
             scoreEl.textContent = `${player.score} pts`;
 
+            const badgeEl = zone.querySelector('.cekih-badge');
+            if (badgeEl) {
+                if (player.isCekih) {
+                    badgeEl.classList.remove('hidden');
+                    badgeEl.textContent = `CEKIH ${player.isCekih}`;
+                } else {
+                    badgeEl.classList.add('hidden');
+                }
+            }
+
             if (s.currentPlayerIndex === player.id) {
                 infoEl.classList.add('active');
             } else {
@@ -1037,6 +1047,16 @@ class RemiClient {
 
         document.getElementById('my-name').textContent = me.name;
         document.getElementById('my-score').textContent = `${me.score} pts`;
+
+        const myBadge = document.getElementById('my-cekih-badge');
+        if (myBadge) {
+            if (me.isCekih) {
+                myBadge.classList.remove('hidden');
+                myBadge.textContent = `CEKIH ${me.isCekih}`;
+            } else {
+                myBadge.classList.add('hidden');
+            }
+        }
 
         const phaseEl = document.getElementById('phase-indicator');
         if (s.isMyTurn) {

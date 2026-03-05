@@ -701,6 +701,38 @@ body {
     background: rgba(212, 168, 71, 0.15);
 }
 
+.cekih-badge {
+    display: inline-block;
+    background: #ff4a5e;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    text-transform: uppercase;
+    animation: cekih-blink 1s ease-in-out infinite alternate;
+    box-shadow: 0 0 8px rgba(255, 74, 94, 0.6);
+}
+
+.cekih-badge.hidden {
+    display: none;
+}
+
+@keyframes cekih-blink {
+    from {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 8px rgba(255, 74, 94, 0.8);
+    }
+
+    to {
+        opacity: 0.6;
+        transform: scale(0.95);
+        box-shadow: 0 0 2px rgba(255, 74, 94, 0.3);
+    }
+}
+
 #player-info .phase-indicator {
     font-size: 0.75rem;
     color: var(--accent-blue);

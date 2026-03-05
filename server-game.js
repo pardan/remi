@@ -877,6 +877,7 @@ class ServerGame {
                 hasMelded: p.hasMelded,
                 hasRun: p.hasRun,
                 score: p.score,
+                isCekih: this.checkCekihPotential(p),
                 hand: p.id === playerId ? p.hand.map(c => {
                     const json = c.toJSON();
                     json.isJoker = this.jokerRevealed && c.rank === this.jokerRank;
@@ -915,6 +916,112 @@ class ServerGame {
             }
         }
         return false;
+    }
+
+    canPartitionIntoMelds(cards, needRun) {
+        if (cards.length === 0) return !needRun;
+        if (cards.length < 3) return false;
+
+        let firstIdx = cards.findIndex(c => !c.isJoker(this));
+        if (firstIdx === -1) return false; // purely jokers left
+
+        const firstCard = cards[firstIdx];
+        const rest = cards.filter((c, i) => i !== firstIdx);
+
+        // Filter to reasonable cards for this set/run
+        const relevantRest = rest.filter(c => c.isJoker(this) || c.rank === firstCard.rank || c.suit === firstCard.suit);
+
+        const getCombos = (arr, size) => {
+            const result = [];
+            const runner = (start, combo) => {
+                if (combo.length === size) { result.push(combo); return; }
+                for (let i = start; i < arr.length; i++) {
+                    runner(i + 1, [...combo, arr[i]]);
+                }
+            };
+            runner(0, []);
+            return result;
+        };
+
+        for (let size = 2; size <= Math.min(6, relevantRest.length); size++) {
+            const combos = getCombos(relevantRest, size);
+            for (const combo of combos) {
+                const potentialMeld = [firstCard, ...combo];
+                const validation = this.validateMeld(potentialMeld);
+                if (validation.valid) {
+                    let stillNeedRun = needRun;
+                    if (needRun) {
+                        const isAllAces = potentialMeld.filter(c => !c.isJoker(this)).every(c => c.rank === 'A') && potentialMeld.length === 4;
+                        if (validation.type === 'run' || isAllAces) stillNeedRun = false;
+                    }
+
+                    if (stillNeedRun && potentialMeld.length === cards.length) continue;
+
+                    const usedIds = new Set(combo.map(c => c.id));
+                    const remaining = rest.filter(c => !usedIds.has(c.id));
+
+                    if (this.canPartitionIntoMelds(remaining, stillNeedRun)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    checkCekihPotential(player) {
+        if (!this.jokerRevealed || player.hand.length < 2) return false;
+
+        const uniqueCardsToTest = [];
+        let testId = 9000;
+        for (const s of SUITS) {
+            for (const r of RANKS) {
+                const c = new Card(s, r, testId++);
+                if (!c.isJoker(this)) uniqueCardsToTest.push(c);
+            }
+        }
+        uniqueCardsToTest.push(new Card('🃏', 'Joker', testId++));
+        if (this.jokerRank) uniqueCardsToTest.push(new Card('♠', this.jokerRank, testId++));
+
+        const needRun = !player.hasRun;
+
+        let system1Potential = false;
+        let system2Potential = false;
+
+        for (const c of uniqueCardsToTest) {
+            const testHand = [...player.hand, c];
+
+            // System 2 Potential (perfect melds, 0 discard needed since taking 2 cards allows discarding the top one)
+            if (!system2Potential && this.canPartitionIntoMelds(testHand, needRun)) {
+                system2Potential = true;
+            }
+
+            // System 1 Potential (perfect melds + 1 discard from hand)
+            if (!system1Potential) {
+                for (let i = 0; i < player.hand.length; i++) {
+                    const discardId = player.hand[i].id;
+                    const remaining = testHand.filter(card => card.id !== discardId);
+                    if (this.canPartitionIntoMelds(remaining, needRun)) {
+                        system1Potential = true;
+                        break;
+                    }
+                }
+            }
+
+            if (system1Potential && system2Potential) break;
+        }
+
+        if (!system1Potential && !system2Potential) return false;
+
+        const pIndex = this.players.findIndex(p => p.id === player.id);
+        const pSystem1 = this.players[(pIndex + 3) % 4];
+        const pSystem2 = this.players[(pIndex + 2) % 4];
+
+        const targets = [];
+        if (system1Potential && pSystem1) targets.push(pSystem1.name);
+        if (system2Potential && pSystem2) targets.push(pSystem2.name);
+
+        return targets.length > 0 ? targets.join(', ').toUpperCase() : false;
     }
 }
 
