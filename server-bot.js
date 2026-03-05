@@ -13,6 +13,9 @@ class serverBot {
     // Mock socket.emit behavior to receive state updates from the server
     emit(event, data) {
         if (event === 'gameState') {
+            // Auto-declare cekih if bot has potential and hasn't declared yet
+            this.tryDeclareCekih();
+
             if (data.isMyTurn) {
                 // Add a small delay for "thinking"
                 setTimeout(() => this.playTurn(data), 1000 + Math.random() * 1500);
@@ -22,6 +25,36 @@ class serverBot {
             setTimeout(() => {
                 this.actionCallback(this.playerIndex, 'requestNextRound');
             }, 4000 + Math.random() * 2000);
+        } else if (event === 'actionResult') {
+            // Ignore action results for bot
+        }
+    }
+
+    tryDeclareCekih() {
+        if (!this.connected || !this.room.game) return;
+        const game = this.room.game;
+        const me = game.players[this.playerIndex];
+        if (!me || me.cekihDeclared) return;
+        if (game.phase === 'gameover') return;
+
+        const potential = game.checkCekihPotential(me);
+        if (potential) {
+            // Small delay to simulate "noticing" cekih
+            setTimeout(() => {
+                if (!this.connected || !this.room.game) return;
+                const result = this.room.game.declareCekih(this.playerIndex);
+                if (result.success) {
+                    console.log(`[Bot ${this.name}] Declared CEKIH! Targets: ${result.targets}`);
+                    // Broadcast state to human players and other bots (skip self to avoid re-triggers)
+                    this.room.playerSockets.forEach((s, i) => {
+                        if (s && s.connected && i !== this.playerIndex) {
+                            const state = this.room.game.getStateForPlayer(i);
+                            state.isHost = (i === this.room.hostIndex);
+                            s.emit('gameState', state);
+                        }
+                    });
+                }
+            }, 500 + Math.random() * 1000);
         }
     }
 
@@ -37,10 +70,14 @@ class serverBot {
         const game = this.room.game;
         if (!game || game.currentPlayerIndex !== this.playerIndex) return;
 
-        console.log(`[Bot ${this.name}] playing turn in phase: ${state.phase}`);
+        // Use live game phase to avoid stale state from delayed setTimeout
+        const phase = game.phase;
+        if (phase === 'gameover') return;
 
-        const phase = state.phase;
         const me = game.players[this.playerIndex];
+        if (!me || me.hand.length === 0) return; // Guard against empty hand
+
+        console.log(`[Bot ${this.name}] playing turn in phase: ${phase}`);
 
         if (phase === 'draw') {
             this.doDraw(me, game);
@@ -131,6 +168,8 @@ class serverBot {
 
     doDiscard(me) {
         const game = this.room.game;
+        if (!me.hand || me.hand.length === 0) return; // Guard against empty hand
+
         // Evaluate deadwood
         let worstCard = me.hand[0];
         let maxVal = -9999;

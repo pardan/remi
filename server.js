@@ -177,6 +177,11 @@ function handleGameAction(roomCode, playerIndex, action, payload = {}) {
         return;
     }
 
+    // Validate cekih declarations after every successful action
+    if (room.game) {
+        room.game.validateCekihDeclarations();
+    }
+
     broadcastGameState(roomCode);
 
     // Joker discard penalty notification
@@ -418,6 +423,20 @@ io.on('connection', (socket) => {
     socket.on('playMeld', (payload) => handleGameAction(socket.roomCode, socket.playerIndex, 'playMeld', payload));
     socket.on('discard', (payload) => handleGameAction(socket.roomCode, socket.playerIndex, 'discard', payload));
     socket.on('requestNextRound', () => handleGameAction(socket.roomCode, socket.playerIndex, 'requestNextRound'));
+
+    // DECLARE CEKIH
+    socket.on('declareCekih', () => {
+        if (!socket.roomCode) return;
+        const room = rooms.get(socket.roomCode);
+        if (!room || !room.game) return;
+
+        const result = room.game.declareCekih(socket.playerIndex);
+        if (result.success) {
+            broadcastGameState(socket.roomCode);
+        } else {
+            socket.emit('actionResult', { success: false, reason: result.reason });
+        }
+    });
 
     socket.on('triggerGunshot', () => {
         if (socket.roomCode) {

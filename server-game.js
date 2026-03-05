@@ -61,7 +61,7 @@ class ServerGame {
         this.deck = [];
         this.discardPile = [];
         this.players = playerNames.map((name, i) => ({
-            id: i, name, hand: [], hasMelded: false, hasRun: false, score: 0, hasDrawnFromDiscardThisRound: false
+            id: i, name, hand: [], hasMelded: false, hasRun: false, score: 0, hasDrawnFromDiscardThisRound: false, cekihDeclared: false
         }));
         this.melds = [];
         this.currentPlayerIndex = 0;
@@ -89,7 +89,7 @@ class ServerGame {
     initRound() {
         this.createDeck();
         this.shuffleDeck();
-        this.players.forEach(p => { p.hand = []; p.hasMelded = false; p.hasRun = false; p.hasDrawnFromDiscardThisRound = false; });
+        this.players.forEach(p => { p.hand = []; p.hasMelded = false; p.hasRun = false; p.hasDrawnFromDiscardThisRound = false; p.cekihDeclared = false; });
         this.melds = [];
         this.discardPile = [];
         this.currentPlayerIndex = 0;
@@ -522,23 +522,25 @@ class ServerGame {
         else if (isFaceRank(card.rank)) bonus = 100;
         else bonus = 50;
 
-        // Cekih Penalty Logic
+        // Cekih Penalty Logic — only apply if the winning player declared cekih
         let cekihDetails = null;
-        // System 1: Ambil 1 kartu → tutup deck → pembuang kena cekih
-        if (this.drawnFromDiscard && this.drawnDiscardCount === 1 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
-            const penalty = -bonus;
-            cekihDetails = {
-                providerId: this.lastDrawnDiscardProvider,
-                penalty: penalty
-            };
-        }
-        // System 2: Ambil 2 kartu → tutup deck → pembuang kartu paling bawah kena cekih
-        if (!cekihDetails && this.drawnFromDiscard && this.drawnDiscardCount === 2 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
-            const penalty = -bonus;
-            cekihDetails = {
-                providerId: this.lastDrawnDiscardProvider,
-                penalty: penalty
-            };
+        if (player.cekihDeclared) {
+            // System 1: Ambil 1 kartu → tutup deck → pembuang kena cekih
+            if (this.drawnFromDiscard && this.drawnDiscardCount === 1 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
+                const penalty = -bonus;
+                cekihDetails = {
+                    providerId: this.lastDrawnDiscardProvider,
+                    penalty: penalty
+                };
+            }
+            // System 2: Ambil 2 kartu → tutup deck → pembuang kartu paling bawah kena cekih
+            if (!cekihDetails && this.drawnFromDiscard && this.drawnDiscardCount === 2 && this.lastDrawnDiscardProvider !== null && this.lastDrawnDiscardProvider !== player.id) {
+                const penalty = -bonus;
+                cekihDetails = {
+                    providerId: this.lastDrawnDiscardProvider,
+                    penalty: penalty
+                };
+            }
         }
 
         return this.handleGameEnd(player, bonus, card, cekihDetails, zeroDiscardBonus);
@@ -910,7 +912,7 @@ class ServerGame {
                 hasMelded: p.hasMelded,
                 hasRun: p.hasRun,
                 score: p.score,
-                isCekih: this.checkCekihPotential(p),
+                isCekih: p.cekihDeclared ? this.checkCekihPotential(p) : false,
                 hand: p.id === playerId ? p.hand.map(c => {
                     const json = c.toJSON();
                     json.isJoker = this.jokerRevealed && c.rank === this.jokerRank;
@@ -1072,6 +1074,45 @@ class ServerGame {
         if (system2Potential && pSystem2) targets.push(pSystem2.name);
 
         return targets.length > 0 ? targets.join(', ').toUpperCase() : false;
+    }
+
+    // ======= CEKIH DECLARATION =======
+
+    declareCekih(playerId) {
+        const player = this.players[playerId];
+        if (!player) return { success: false, reason: 'Pemain tidak ditemukan' };
+        if (this.phase === 'gameover') return { success: false, reason: 'Game sudah selesai' };
+
+        // Cannot declare cekih during your own turn — you should have declared before your turn
+        if (this.currentPlayerIndex === playerId) {
+            return { success: false, reason: 'Terlambat! Kamu harus declare cekih sebelum giliranmu.' };
+        }
+
+        const potential = this.checkCekihPotential(player);
+        if (!potential) {
+            return { success: false, reason: 'Kamu tidak dalam kondisi cekih saat ini.' };
+        }
+
+        player.cekihDeclared = true;
+        return { success: true, targets: potential };
+    }
+
+    validateCekihDeclarations() {
+        let changed = false;
+        this.players.forEach(p => {
+            if (p.cekihDeclared) {
+                // Don't invalidate cekih during the declaring player's own turn
+                // Only re-check after their turn ends
+                if (p.id === this.currentPlayerIndex) return;
+
+                const stillValid = this.checkCekihPotential(p);
+                if (!stillValid) {
+                    p.cekihDeclared = false;
+                    changed = true;
+                }
+            }
+        });
+        return changed;
     }
 }
 

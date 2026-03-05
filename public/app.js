@@ -529,6 +529,7 @@ class RemiClient {
         document.getElementById('btn-meld').addEventListener('click', () => this.onMeldClick());
         document.getElementById('btn-discard').addEventListener('click', () => this.onDiscardClick());
         document.getElementById('btn-next-round').addEventListener('click', () => this.onNextRound());
+        document.getElementById('btn-cekih').addEventListener('click', () => this.onCekihClick());
 
         // Turn modal OK
         document.getElementById('btn-turn-ok').addEventListener('click', () => {
@@ -700,6 +701,12 @@ class RemiClient {
         this.socket.emit('requestNextRound');
         document.getElementById('btn-next-round').disabled = true;
         document.getElementById('btn-next-round').textContent = '⏳ Menunggu pemain lain...';
+    }
+
+    onCekihClick() {
+        if (!this.gameState || this.gameState.phase === 'gameover') return;
+        this.audio.play('select');
+        this.socket.emit('declareCekih');
     }
 
     toggleCardSelection(cardId) {
@@ -1142,6 +1149,18 @@ class RemiClient {
             btnDiscard.textContent = '⚠️ Harus turun dulu!';
         } else {
             btnDiscard.textContent = '📤 Buang Kartu';
+        }
+
+        // Cekih button — disabled during gameover or during own turn (must declare before your turn)
+        const btnCekih = document.getElementById('btn-cekih');
+        if (btnCekih) {
+            const isOwnTurn = isMyTurn && phase !== 'gameover';
+            btnCekih.disabled = !s || phase === 'gameover' || isOwnTurn;
+            if (isOwnTurn) {
+                btnCekih.textContent = '🚫 Cekih';
+            } else {
+                btnCekih.textContent = '⚠️ Cekih!';
+            }
         }
     }
 
