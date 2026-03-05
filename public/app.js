@@ -778,11 +778,11 @@ class RemiClient {
             }
         }
 
-        // Trigger panic sound if the current player is the TARGET of a Cekih
+        // Trigger panic sound ONLY for the target player (not all clients)
         const currentPlaying = this.gameState.players.find(p => p.id === this.gameState.currentPlayerIndex);
         let inDanger = false;
 
-        if (currentPlaying && this.gameState.phase !== 'gameover') {
+        if (currentPlaying && this.gameState.phase !== 'gameover' && this.gameState.currentPlayerIndex === this.myPlayerId) {
             const currentNameUpper = currentPlaying.name.toUpperCase();
             inDanger = this.gameState.players.some(p => {
                 if (!p.isCekih) return false;
