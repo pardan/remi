@@ -20,11 +20,13 @@ class AudioController {
             place: new Audio('/audio/card_place.mp3'),
             select: new Audio('/audio/card_select.mp3'),
             turn: new Audio('/audio/whistle.mp3'),
-            gunshot: new Audio('/audio/gunshot.mp3')
+            gunshot: new Audio('/audio/gunshot.mp3'),
+            panic: new Audio('/audio/Panic_Attack.mp3')
         };
 
-        // Configure background music
+        // Configure looping sounds
         this.sounds.bgMusic.loop = true;
+        this.sounds.panic.loop = true;
 
         this.musicMuted = true;
         this.musicVolume = 1;
@@ -46,6 +48,7 @@ class AudioController {
         this.sounds.place.volume = this.sfxVolume;
         this.sounds.select.volume = this.sfxVolume;
         this.sounds.turn.volume = this.sfxVolume;
+        this.sounds.panic.volume = this.sfxVolume;
     }
 
     setMusicVolume(vol) {
@@ -69,6 +72,21 @@ class AudioController {
 
     toggleSfxMute(isMuted) {
         this.sfxMuted = isMuted;
+        if (this.sfxMuted) this.stopPanic();
+    }
+
+    playPanic() {
+        if (this.sfxMuted) return;
+        if (this.isPanicPlaying) return;
+        this.isPanicPlaying = true;
+        this.sounds.panic.play().catch(() => { });
+    }
+
+    stopPanic() {
+        if (!this.isPanicPlaying) return;
+        this.isPanicPlaying = false;
+        this.sounds.panic.pause();
+        this.sounds.panic.currentTime = 0;
     }
 
     play(soundName) {
@@ -259,6 +277,7 @@ class RemiClient {
     }
 
     leaveRoom() {
+        this.audio.stopPanic();
         this.socket.emit('leaveRoom');
         this.showLobbyMenu();
     }
@@ -270,6 +289,7 @@ class RemiClient {
     }
 
     showLobbyMenu() {
+        this.audio.stopPanic();
         document.getElementById('lobby-screen').classList.remove('hidden');
         document.getElementById('game-container').classList.add('hidden');
         document.getElementById('lobby-menu').classList.remove('hidden');
@@ -281,6 +301,7 @@ class RemiClient {
     }
 
     showWaitingRoom() {
+        this.audio.stopPanic();
         document.getElementById('lobby-menu').classList.add('hidden');
         document.getElementById('bot-section').classList.add('hidden');
         document.getElementById('host-section').classList.add('hidden');
@@ -342,6 +363,7 @@ class RemiClient {
         });
 
         this.socket.on('error', ({ message }) => {
+            this.audio.stopPanic();
             this.showToast(message, 'error');
         });
 
@@ -460,6 +482,7 @@ class RemiClient {
         });
 
         this.socket.on('roomClosed', ({ reason }) => {
+            this.audio.stopPanic();
             this.showToast(reason, 'error');
             this.showLobbyMenu();
         });
@@ -492,6 +515,7 @@ class RemiClient {
         });
 
         this.socket.on('lateJoinRejected', ({ message }) => {
+            this.audio.stopPanic();
             this.showToast(message, 'error');
             this.showLobbyMenu();
         });
@@ -747,6 +771,25 @@ class RemiClient {
             }
         }
 
+        // Trigger panic sound if the current player is the TARGET of a Cekih
+        const currentPlaying = this.gameState.players.find(p => p.id === this.gameState.currentPlayerIndex);
+        let inDanger = false;
+
+        if (currentPlaying && this.gameState.phase !== 'gameover') {
+            const currentNameUpper = currentPlaying.name.toUpperCase();
+            inDanger = this.gameState.players.some(p => {
+                if (!p.isCekih) return false;
+                const targets = p.isCekih.split(', ');
+                return targets.includes(currentNameUpper);
+            });
+        }
+
+        if (inDanger) {
+            this.audio.playPanic();
+        } else {
+            this.audio.stopPanic();
+        }
+
         this.renderHeader();
         this.renderOpponents();
         this.renderPiles();
@@ -933,6 +976,8 @@ class RemiClient {
     }
 
     renderPlayerHand() {
+        if (this.isDraggingCard) return;
+
         const s = this.gameState;
         const handContainer = document.getElementById('player-hand');
         handContainer.innerHTML = '';
@@ -975,6 +1020,7 @@ class RemiClient {
             el.draggable = true;
 
             el.addEventListener('dragstart', (e) => {
+                this.isDraggingCard = true;
                 e.dataTransfer.setData('text/plain', card.id);
                 el.classList.add('dragging');
 
@@ -991,6 +1037,7 @@ class RemiClient {
             el.addEventListener('dragend', () => {
                 el.classList.remove('dragging');
                 el.style.opacity = '1';
+                this.isDraggingCard = false;
             });
 
             handContainer.appendChild(el);
@@ -1020,6 +1067,7 @@ class RemiClient {
                 this.audio.play('place');
                 const newOrderIds = Array.from(handContainer.querySelectorAll('.card')).map(el => parseInt(el.dataset.cardId));
                 this.customHandOrder = newOrderIds;
+                this.isDraggingCard = false;
             });
         }
         // Clear newlyDrawn tracking after 1 second so it doesn't keep animating if re-rendered
@@ -1100,6 +1148,7 @@ class RemiClient {
     // ======= GAME OVER MODAL =======
 
     showGameOverModal(winner, scores, tutupDeckCard) {
+        this.audio.stopPanic();
         const modal = document.getElementById('gameover-modal');
         const tbody = document.getElementById('score-tbody');
         tbody.innerHTML = '';

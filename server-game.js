@@ -991,13 +991,18 @@ class ServerGame {
         for (const c of uniqueCardsToTest) {
             const testHand = [...player.hand, c];
 
-            // System 2 Potential (perfect melds, 0 discard needed since taking 2 cards allows discarding the top one)
-            if (!system2Potential && this.canPartitionIntoMelds(testHand, needRun)) {
+            // System 2 Potential (draw 2 cards from discard, discard 1):
+            // You must use AT LEAST 2 cards from your hand for the meld involving the bottom card.
+            // Minimum hand size for System 2 Cekih: 2 cards from hand (to meld) + 0 discard (uses top drawn card to discard) = 2 cards in hand required.
+            if (!system2Potential && player.hand.length >= 2 && this.canPartitionIntoMelds(testHand, needRun)) {
                 system2Potential = true;
             }
 
-            // System 1 Potential (perfect melds + 1 discard from hand)
-            if (!system1Potential) {
+            // System 1 Potential (draw 1 card from discard, discard 1):
+            // You must use AT LEAST 2 cards from your hand for the meld involving the drawn card.
+            // You must also have 1 card from your hand to discard.
+            // Minimum hand size for System 1 Cekih is therefore 3 cards.
+            if (!system1Potential && player.hand.length >= 3) {
                 for (let i = 0; i < player.hand.length; i++) {
                     const discardId = player.hand[i].id;
                     const remaining = testHand.filter(card => card.id !== discardId);
