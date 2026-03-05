@@ -191,6 +191,12 @@ class serverBot {
         if (game.drawnFromDiscard && !game.usedDrawnDiscardThisTurn) {
             const mandatoryMelds = validMelds.filter(meld => meld.some(c => game.drawnDiscardIds.has(c.id)));
             if (mandatoryMelds.length > 0) return mandatoryMelds;
+            // No mandatory meld found yet — but there might be prerequisite melds needed first (e.g., a RUN before a SET)
+            // If the player hasn't run yet, try playing any available RUN first to unlock SET melds with drawn cards
+            if (!player.hasRun && validMelds.length > 0) {
+                const runMelds = validMelds.filter(m => game.validateMeld(m).type === 'run');
+                if (runMelds.length > 0) return runMelds;
+            }
             // No valid meld with drawn card — return empty so bot doesn't try non-mandatory melds first
             return [];
         }
