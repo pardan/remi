@@ -283,6 +283,11 @@ class ServerGame {
             if (uniqueSuits.length >= 3) {
                 const setCards = uniqueSuits.slice(0, Math.min(4, uniqueSuits.length));
                 if (isValidPickup(setCards) && checkSetWithRunInHand(setCards)) return true;
+                // Also try adding a joker to make a 4-card set (e.g. 3 Aces + Joker)
+                if (uniqueSuits.length === 3 && jokers.length > 0) {
+                    const setCardsWithJoker = [...uniqueSuits, jokers[0]];
+                    if (isValidPickup(setCardsWithJoker) && checkSetWithRunInHand(setCardsWithJoker)) return true;
+                }
             }
             if (uniqueSuits.length === 2 && jokers.length > 0) {
                 const setCards = [...uniqueSuits, jokers[0]];
@@ -295,6 +300,11 @@ class ServerGame {
         if (aces.length >= 3) {
             const setCards = aces.slice(0, Math.min(4, aces.length));
             if (isValidPickup(setCards) && checkSetWithRunInHand(setCards)) return true;
+            // Also try 3 Aces + Joker as 4 Aces substitute
+            if (aces.length === 3 && jokers.length > 0) {
+                const setCardsWithJoker = [...aces, jokers[0]];
+                if (isValidPickup(setCardsWithJoker) && checkSetWithRunInHand(setCardsWithJoker)) return true;
+            }
         }
 
         return false;
