@@ -1410,7 +1410,15 @@ function resizeGameWindow() {
     const gameContainer = document.getElementById('game-container');
     if (!gameContainer) return;
 
-    // Use zoom scaling for a cleaner layout reflow
+    // On mobile, skip zoom scaling — let CSS media queries handle layout
+    const isMobileLandscape = window.innerHeight <= 500 && window.innerWidth >= 480;
+    const isMobilePortrait = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+    if (isMobileLandscape || isMobilePortrait) {
+        gameContainer.style.zoom = 1;
+        return;
+    }
+
+    // Use zoom scaling for a cleaner layout reflow (desktop & tablet)
     const baseWidth = 1000;
     const baseHeight = 700;
 
@@ -1430,4 +1438,47 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeGameWindow);
     window.addEventListener('orientationchange', resizeGameWindow);
     setTimeout(resizeGameWindow, 100);
+
+    // ======= ORIENTATION MANAGEMENT =======
+
+    // Try to lock orientation to landscape when game starts
+    function tryLockLandscape() {
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {
+                // Silently fail — not all browsers support this
+            });
+        }
+    }
+
+    // Update portrait prompt visibility
+    function updateRotatePrompt() {
+        const prompt = document.getElementById('rotate-prompt');
+        if (!prompt) return;
+        const gameContainer = document.getElementById('game-container');
+        const isGameActive = gameContainer && !gameContainer.classList.contains('hidden');
+        if (isGameActive) {
+            prompt.classList.add('game-active');
+        } else {
+            prompt.classList.remove('game-active');
+        }
+    }
+
+    // Watch for game container visibility changes
+    const observer = new MutationObserver(() => {
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer && !gameContainer.classList.contains('hidden')) {
+            tryLockLandscape();
+        }
+        updateRotatePrompt();
+    });
+
+    const gameContainer = document.getElementById('game-container');
+    if (gameContainer) {
+        observer.observe(gameContainer, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    window.addEventListener('resize', updateRotatePrompt);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(updateRotatePrompt, 100);
+    });
 });

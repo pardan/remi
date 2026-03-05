@@ -1804,49 +1804,608 @@ body {
     }
 }
 
-/* ===================== RESPONSIVE MOBILE ===================== */
+/* ===================== MOBILE PORTRAIT OPTIMIZED ===================== */
 
-/* Untuk layar HP Portrait dan Layar Kecil */
-@media (max-width: 768px) {
+/* Portrait on small screens: stack everything vertically */
+@media (max-width: 768px) and (orientation: portrait) {
     :root {
-        --card-width: 45px;
-        --card-height: 64px;
+        --card-width: 44px;
+        --card-height: 62px;
+    }
+
+    /* --- Header compact --- */
+    #game-header {
+        padding: 4px 10px;
+        flex-wrap: nowrap;
+        gap: 6px;
     }
 
     .header-title h1 {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
 
-    #opponent-left,
-    #opponent-right {
-        width: 80px;
-    }
-
-    .opponent-info {
-        min-width: 70px;
-        padding: 4px 8px;
+    .header-info {
         font-size: 0.7rem;
+        gap: 6px;
     }
 
+    .header-info .deck-info,
+    .header-info .round-info {
+        padding: 2px 6px;
+    }
+
+    .room-code-header {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+    }
+
+    /* --- Grid: 2 columns for the second row --- */
+    #game-body {
+        grid-template-rows: auto auto 1fr auto;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+    }
+
+    /* --- All opponents go to top area --- */
+    #opponent-top {
+        grid-row: 1;
+        grid-column: 1 / span 2;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+    }
+
+    #opponent-left {
+        grid-row: 2;
+        grid-column: 1;
+        flex-direction: column;
+        align-items: flex-start;
+        width: auto;
+        padding: 2px 8px;
+    }
+
+    #opponent-right {
+        grid-row: 2;
+        grid-column: 2;
+        flex-direction: column;
+        align-items: flex-end;
+        width: auto;
+        padding: 2px 8px;
+    }
+
+    /* Opponent info badges compact */
+    .opponent-info {
+        flex-direction: row;
+        min-width: auto;
+        padding: 3px 8px;
+        font-size: 0.65rem;
+        gap: 4px;
+        border-radius: 8px;
+    }
+
+    .opponent-info .player-name {
+        font-size: 0.7rem;
+        max-width: 60px;
+    }
+
+    .opponent-info .stats-row {
+        gap: 4px;
+    }
+
+    .opponent-info .card-count,
+    .opponent-info .opponent-score {
+        font-size: 0.6rem;
+        padding: 1px 4px;
+    }
+
+    /* Hide opponent cards completely on portrait mobile to save space */
+    .opponent-cards {
+        display: none !important;
+    }
+
+    /* Opponent melds stacked vertically downwards! */
+    .opponent-melds {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 4px 0;
+        margin: 0;
+        gap: 6px;
+    }
+
+    /* Center melds for the top opponent, right-align for the right opponent */
+    #opponent-top .opponent-melds {
+        align-items: center;
+    }
+
+    #opponent-right .opponent-melds {
+        align-items: flex-end;
+    }
+
+    .opponent-melds .meld-group {
+        flex-direction: row;
+        /* cards inside the group are still horizontal */
+        padding: 4px 6px;
+        gap: 2px;
+    }
+
+    .opponent-melds .meld-group .card {
+        width: 30px;
+        height: 42px;
+        border-radius: 4px;
+        transition: transform 0.2s;
+    }
+
+    .opponent-melds .meld-group:hover .card,
+    .opponent-melds .meld-group:active .card {
+        transform: scale(1.3) translateY(10px);
+        z-index: 10;
+        position: relative;
+    }
+
+    /* --- Center Area: vertical stack --- */
+    #center-area {
+        grid-row: 3;
+        grid-column: 1 / span 2;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        justify-content: center;
+        align-items: center;
+        overflow-y: auto;
+    }
+
+    #piles-area {
+        gap: 20px;
+    }
+
+    .pile-label {
+        font-size: 0.55rem;
+    }
+
+    .pile-count {
+        font-size: 0.55rem;
+    }
+
+    .discard-pile-area {
+        max-width: 95%;
+        min-height: 80px;
+        padding: 8px 10px;
+    }
+
+    .discard-pile-cards {
+        padding: 4px 6px 4px 4px;
+    }
+
+    .discard-pile-cards .card {
+        width: calc(var(--card-width) * 1.15);
+        height: calc(var(--card-height) * 1.15);
+        margin-left: calc(var(--card-width) * -0.65);
+    }
+
+    .discard-pile-area.clickable .discard-pile-cards .card:hover~.card {
+        margin-left: calc(var(--card-width) * -0.3);
+    }
+
+    /* Joker display compact */
+    #joker-display .joker-display-inner {
+        transform: scale(0.6);
+    }
+
+    /* --- Player Zone: bottom, full width --- */
     #player-zone {
-        padding: 4px 8px 8px;
-    }
-}
-
-/* Untuk layar HP Landscape (Tinggi layar sangat kecil) */
-@media (max-height: 500px) {
-    :root {
-        --card-width: 40px;
-        --card-height: 56px;
-    }
-
-    #game-header {
-        padding: 4px 12px;
+        grid-row: 4;
+        grid-column: 1 / span 2;
+        padding: 4px 8px 10px;
+        min-height: 0;
+        gap: 4px;
     }
 
     #player-melds {
-        padding-top: 40px;
-        margin-top: -36px;
+        padding: 30px 4px 4px;
+        margin-top: -28px;
+        gap: 6px;
+    }
+
+    #player-melds .meld-group {
+        padding: 3px 6px;
+        gap: 2px;
+    }
+
+    #player-melds .meld-group .card {
+        width: 32px;
+        height: 45px;
+        font-size: 0.45rem;
+        border-radius: 3px;
+        transition: transform 0.2s;
+    }
+
+    #player-melds .meld-group:hover .card,
+    #player-melds .meld-group:active .card {
+        transform: scale(1.2) translateY(-10px);
+        z-index: 10;
+        position: relative;
+    }
+
+    #player-info {
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    #player-info .player-badge {
+        padding: 2px 10px;
+        font-size: 0.7rem;
+    }
+
+    #player-info .phase-indicator {
+        font-size: 0.65rem;
+    }
+
+    #player-hand {
+        gap: 3px;
+        padding: 2px 4px;
+        justify-content: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    #player-hand .card {
+        width: 42px;
+        height: 60px;
+        border-radius: 5px;
+        flex-shrink: 0;
+    }
+
+    #player-hand .card.selected {
+        transform: translateY(-10px);
+    }
+
+    #player-actions {
+        gap: 4px;
+    }
+
+    #player-actions .btn {
+        padding: 4px 10px;
+        font-size: 0.7rem;
+    }
+
+    /* Modals fit portrait */
+    .modal {
+        padding: 20px;
+        max-width: 90%;
+    }
+
+    .modal h2 {
+        font-size: 1.2rem;
+    }
+
+    .modal .score-table th,
+    .modal .score-table td {
+        padding: 6px 8px;
+        font-size: 0.75rem;
+    }
+
+    /* Toast position */
+    #toast-container {
+        top: 50px;
+        right: 8px;
+    }
+
+    .toast {
+        padding: 6px 12px;
+        font-size: 0.7rem;
+        max-width: 200px;
+    }
+}
+
+/* Also handle general small screens (both orientations share base sizing) */
+@media (max-width: 768px) {
+    .btn {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+}
+
+/* Hide rotation prompt — both orientations now supported */
+#rotate-prompt {
+    display: none !important;
+}
+
+/* ===================== MOBILE LANDSCAPE OPTIMIZED ===================== */
+
+/* Target mobile landscape: short height + wide screen */
+@media (max-height: 500px) and (min-width: 480px) {
+    :root {
+        --card-width: 46px;
+        --card-height: 65px;
+    }
+
+    /* --- Header: single compact line --- */
+    #game-header {
+        padding: 3px 12px;
+        flex-wrap: nowrap;
+        gap: 8px;
+        min-height: 0;
+    }
+
+    .header-title {
+        width: auto;
+        margin-bottom: 0;
+    }
+
+    .header-title h1 {
+        font-size: 0.85rem;
+        display: none;
+        /* hide title to save space */
+    }
+
+    .header-info {
+        font-size: 0.7rem;
+        gap: 6px;
+        width: auto;
+        justify-content: flex-end;
+    }
+
+    .header-info .deck-info,
+    .header-info .round-info {
+        padding: 2px 8px;
+    }
+
+    .room-code-header {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+    }
+
+    .header-actions .btn-icon {
+        font-size: 0.8rem;
+        padding: 2px 6px;
+    }
+
+    /* --- Game Body: maximize center area --- */
+    #game-body {
+        grid-template-rows: auto 1fr auto;
+        grid-template-columns: 90px 1fr 90px;
+        gap: 0;
+    }
+
+    /* --- Top Opponent: inline compact --- */
+    #opponent-top {
+        flex-direction: row;
+        justify-content: center;
+        gap: 6px;
+        padding: 2px 4px;
+    }
+
+    #opponent-top .opponent-info {
+        flex-direction: row;
+        gap: 6px;
+        min-width: auto;
+        padding: 2px 8px;
+        border-radius: 8px;
+    }
+
+    /* Hide all opponent cards on landscape to save space */
+    .opponent-cards {
+        display: none !important;
+    }
+
+    /* Opponent melds larger and readable */
+    .opponent-melds {
+        padding: 4px 0;
+        margin: 0;
+        gap: 6px;
+    }
+
+    .opponent-melds .meld-group {
+        padding: 4px 6px;
+        gap: 2px;
+    }
+
+    .opponent-melds .meld-group .card {
+        width: 30px;
+        height: 42px;
+        border-radius: 4px;
+        transition: transform 0.2s;
+    }
+
+    .opponent-melds .meld-group:hover .card,
+    .opponent-melds .meld-group:active .card {
+        transform: scale(1.3) translateY(10px);
+        z-index: 10;
+        position: relative;
+    }
+
+    /* --- Left & Right Opponents: compact info only --- */
+    #opponent-left,
+    #opponent-right {
+        width: 80px;
+        padding: 2px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .opponent-info {
+        min-width: 60px;
+        padding: 4px 6px;
+        font-size: 0.65rem;
+        border-radius: 8px;
+    }
+
+    .opponent-info .player-name {
+        font-size: 0.7rem;
+        max-width: 65px;
+    }
+
+    .opponent-info .stats-row {
+        gap: 4px;
+    }
+
+    .opponent-info .card-count,
+    .opponent-info .opponent-score {
+        font-size: 0.6rem;
+        padding: 1px 4px;
+    }
+
+    /* Left/Right opponent cards and melds are now handled globally by the rules above */
+
+    /* --- Center Area: maximize space --- */
+    #center-area {
+        gap: 8px;
+        padding: 4px 8px;
+        flex-wrap: nowrap;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #piles-area {
+        gap: 16px;
+        flex-shrink: 0;
+    }
+
+    .pile-label {
+        font-size: 0.55rem;
+    }
+
+    .pile-count {
+        font-size: 0.55rem;
+        padding: 1px 6px;
+    }
+
+    .discard-pile-area {
+        max-width: 320px;
+        min-height: 70px;
+        padding: 6px 8px;
+    }
+
+    #discard-pile-label {
+        font-size: 0.55rem;
+    }
+
+    .discard-pile-cards .card {
+        width: calc(var(--card-width) * 0.75);
+        height: calc(var(--card-height) * 0.75);
+    }
+
+    /* Joker display compact */
+    #joker-display .joker-display-inner {
+        transform: scale(0.55);
+    }
+
+    /* --- Player Zone: compact horizontal layout --- */
+    #player-zone {
+        padding: 2px 8px 4px;
+        min-height: 80px;
+        gap: 3px;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.5), transparent);
+    }
+
+    #player-melds {
+        padding: 30px 4px 4px;
+        margin-top: -28px;
+        gap: 6px;
+    }
+
+    #player-melds .meld-group {
+        padding: 3px 6px;
+        gap: 2px;
+    }
+
+    #player-melds .meld-group .card {
+        width: 32px;
+        height: 45px;
+        font-size: 0.45rem;
+        border-radius: 3px;
+        transition: transform 0.2s;
+    }
+
+    #player-melds .meld-group:hover .card,
+    #player-melds .meld-group:active .card {
+        transform: scale(1.2) translateY(-10px);
+        z-index: 10;
+        position: relative;
+    }
+
+    #player-info {
+        gap: 8px;
+        flex-wrap: nowrap;
+    }
+
+    #player-info .player-badge {
+        padding: 2px 10px;
+        font-size: 0.7rem;
+    }
+
+    #player-info .phase-indicator {
+        font-size: 0.65rem;
+    }
+
+    .player-score {
+        font-size: 0.7rem;
+    }
+
+    /* Player hand cards — optimized for touch */
+    #player-hand {
+        gap: 3px;
+        padding: 2px 4px;
+    }
+
+    #player-hand .card {
+        width: 44px;
+        height: 62px;
+        border-radius: 5px;
+    }
+
+    #player-hand .card.selectable:hover {
+        transform: translateY(-4px);
+    }
+
+    #player-hand .card.selected {
+        transform: translateY(-12px);
+    }
+
+    /* Action buttons compact */
+    #player-actions {
+        gap: 4px;
+    }
+
+    #player-actions .btn {
+        padding: 3px 10px;
+        font-size: 0.65rem;
+        border-radius: 6px;
+    }
+
+    /* --- Modals fit landscape --- */
+    .modal {
+        padding: 16px;
+        max-width: 420px;
+    }
+
+    .modal h2 {
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+    }
+
+    .compact-modal {
+        padding: 12px 16px;
+    }
+
+    .modal .score-table th,
+    .modal .score-table td {
+        padding: 5px 8px;
+        font-size: 0.75rem;
+    }
+
+    /* Toast position for landscape */
+    #toast-container {
+        top: 40px;
+        right: 12px;
+    }
+
+    .toast {
+        padding: 6px 12px;
+        font-size: 0.7rem;
+        max-width: 220px;
     }
 }
 
