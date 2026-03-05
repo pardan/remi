@@ -197,15 +197,17 @@ class ServerGame {
 
         const isValidPickup = (meldCards) => {
             const fromDiscard = meldCards.filter(c => discardIds.has(c.id)).length;
-            const fromHand = meldCards.filter(c => handIds.has(c.id)).length;
+            // Must have at least 2 NON-JOKER cards from hand in the meld
+            // BUT: joker-rank cards "acting as themselves" count as non-joker
+            const jokersActAsSelf = game.isValidMeldWithoutJokers(meldCards);
+            const fromHandReal = meldCards.filter(c => {
+                if (!handIds.has(c.id)) return false;
+                if (!c.isJoker(game)) return true;
+                return jokersActAsSelf; // joker acting as itself = counts as non-joker
+            }).length;
             const includesBottom = meldCards.some(c => c.id === bottomCard.id);
-            // The player's hand after picking up discard cards and melding must have at least 1 card remaining to discard.
-            // Total cards = (player.hand.length + discardCards.length)
-            // Cards used in meld = meldCards.length
-            // Remaining cards = (player.hand.length + discardCards.length) - meldCards.length
-            // This must be >= 1
             const leavesOneCard = (player.hand.length + discardCards.length - meldCards.length) >= 1;
-            return fromDiscard >= 1 && fromHand >= 2 && includesBottom && leavesOneCard;
+            return fromDiscard >= 1 && fromHandReal >= 2 && includesBottom && leavesOneCard;
         };
 
         const nonJokers = allCards.filter(c => !c.isJoker(game));
@@ -331,6 +333,37 @@ class ServerGame {
     }
 
     // ======= MELD =======
+
+    // Check if a meld would be valid even when treating ALL cards as regular (non-joker) cards.
+    // If yes, then joker-rank cards in this meld are "acting as themselves", not as wildcards.
+    isValidMeldWithoutJokers(cards) {
+        if (cards.length < 3 || cards.length > 13) return false;
+        // Actual Joker card (suit 🃏) can never act as itself
+        if (cards.some(c => c.suit === '🃏')) return false;
+
+        const ranks = new Set(cards.map(c => c.rank));
+        const suits = new Set(cards.map(c => c.suit));
+
+        // Set check: all same rank, all different suits, max 4
+        if (ranks.size === 1 && suits.size === cards.length && cards.length <= 4) {
+            return true;
+        }
+
+        // Run check: same suit, consecutive orders, no mixing number/face groups
+        if (suits.size === 1) {
+            const groups = new Set(cards.map(c => getRunGroup(c.rank)));
+            if (groups.size > 1) return false; // can't mix numbers and faces
+            if (cards.some(c => c.rank === 'A')) return false; // Ace not allowed in runs without joker
+
+            const orders = cards.map(c => c.order).sort((a, b) => a - b);
+            for (let i = 0; i < orders.length - 1; i++) {
+                if (orders[i + 1] - orders[i] !== 1) return false;
+            }
+            return true;
+        }
+
+        return false;
+    }
 
     validateMeld(cards) {
         if (cards.length < 3) return { valid: false, reason: 'Minimal 3 kartu untuk turun' };
@@ -918,7 +951,7 @@ class ServerGame {
         return false;
     }
 
-    canPartitionIntoMelds(cards, needRun) {
+    canPartitionIntoMelds(cards, needRun, drawnCardIds = []) {
         if (cards.length === 0) return !needRun;
         if (cards.length < 3) return false;
 
@@ -949,6 +982,21 @@ class ServerGame {
                 const potentialMeld = [firstCard, ...combo];
                 const validation = this.validateMeld(potentialMeld);
                 if (validation.valid) {
+                    // Check if this meld obeys the pick-up rule: If it contains a drawn card, it must contain >= 2 NON-JOKER cards from hand.
+                    // BUT: joker-rank cards "acting as themselves" count as non-joker.
+                    if (drawnCardIds.length > 0) {
+                        const hasDrawn = potentialMeld.some(c => drawnCardIds.includes(c.id));
+                        if (hasDrawn) {
+                            const jokersActAsSelf = this.isValidMeldWithoutJokers(potentialMeld);
+                            const fromHandReal = potentialMeld.filter(c => {
+                                if (drawnCardIds.includes(c.id)) return false;
+                                if (!c.isJoker(this)) return true;
+                                return jokersActAsSelf;
+                            }).length;
+                            if (fromHandReal < 2) continue; // Invalid pickup meld, skip this combo
+                        }
+                    }
+
                     let stillNeedRun = needRun;
                     if (needRun) {
                         const isAllAces = potentialMeld.filter(c => !c.isJoker(this)).every(c => c.rank === 'A') && potentialMeld.length === 4;
@@ -960,7 +1008,7 @@ class ServerGame {
                     const usedIds = new Set(combo.map(c => c.id));
                     const remaining = rest.filter(c => !usedIds.has(c.id));
 
-                    if (this.canPartitionIntoMelds(remaining, stillNeedRun)) {
+                    if (this.canPartitionIntoMelds(remaining, stillNeedRun, drawnCardIds)) {
                         return true;
                     }
                 }
@@ -990,23 +1038,20 @@ class ServerGame {
 
         for (const c of uniqueCardsToTest) {
             const testHand = [...player.hand, c];
+            const drawnIds = [c.id]; // For Cekih, we pretend the drawn card is ID `c.id`
 
             // System 2 Potential (draw 2 cards from discard, discard 1):
             // You must use AT LEAST 2 cards from your hand for the meld involving the bottom card.
-            // Minimum hand size for System 2 Cekih: 2 cards from hand (to meld) + 0 discard (uses top drawn card to discard) = 2 cards in hand required.
-            if (!system2Potential && player.hand.length >= 2 && this.canPartitionIntoMelds(testHand, needRun)) {
+            if (!system2Potential && player.hand.length >= 2 && this.canPartitionIntoMelds(testHand, needRun, drawnIds)) {
                 system2Potential = true;
             }
 
             // System 1 Potential (draw 1 card from discard, discard 1):
-            // You must use AT LEAST 2 cards from your hand for the meld involving the drawn card.
-            // You must also have 1 card from your hand to discard.
-            // Minimum hand size for System 1 Cekih is therefore 3 cards.
             if (!system1Potential && player.hand.length >= 3) {
                 for (let i = 0; i < player.hand.length; i++) {
                     const discardId = player.hand[i].id;
                     const remaining = testHand.filter(card => card.id !== discardId);
-                    if (this.canPartitionIntoMelds(remaining, needRun)) {
+                    if (this.canPartitionIntoMelds(remaining, needRun, drawnIds)) {
                         system1Potential = true;
                         break;
                     }
