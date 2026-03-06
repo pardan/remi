@@ -541,7 +541,7 @@ class RemiClient {
         });
 
         this.socket.on('playerReplaced', ({ oldName, botName, playerIndex }) => {
-            this.showToast(`🤖 ${oldName} diganti oleh Bot. Game tetap lanjut!`, 'info');
+            this.showToast(`🔄 ${oldName} diganti oleh ${botName}. Game tetep lanjut!`, 'info');
         });
 
         this.socket.on('playerNotification', ({ title, message }) => {
