@@ -481,6 +481,18 @@ class RemiClient {
             this.showToast(`🤖 ${oldName} diganti oleh Bot. Game tetap lanjut!`, 'info');
         });
 
+        this.socket.on('playerNotification', ({ title, message }) => {
+            document.getElementById('notify-modal-title').textContent = title;
+            document.getElementById('notify-modal-message').textContent = message;
+            document.getElementById('notify-modal').classList.add('active');
+            this.audio.play('turn');
+            // Auto-dismiss after 5 seconds
+            if (this._notifyTimer) clearTimeout(this._notifyTimer);
+            this._notifyTimer = setTimeout(() => {
+                document.getElementById('notify-modal').classList.remove('active');
+            }, 5000);
+        });
+
         this.socket.on('roomClosed', ({ reason }) => {
             this.audio.stopPanic();
             this.showToast(reason, 'error');
@@ -544,6 +556,13 @@ class RemiClient {
                     this.socket.emit('triggerGunshot');
                 }
             }, 20000);
+        });
+
+        // Notify modal OK
+        document.getElementById('btn-notify-ok').addEventListener('click', () => {
+            this.audio.play('select');
+            document.getElementById('notify-modal').classList.remove('active');
+            if (this._notifyTimer) clearTimeout(this._notifyTimer);
         });
 
         // Settings Modal Events

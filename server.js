@@ -121,6 +121,16 @@ function replacePlayerWithBot(roomCode, playerIndex) {
     // If the game is in 'gameover' phase, the bot's emit handler will auto-vote for next round
     // Otherwise, broadcast state so the bot can play if it's their turn
     broadcastGameState(roomCode);
+
+    // Show notification popup to all human players
+    room.playerSockets.forEach((s) => {
+        if (s && s.connected && !s.doAction) {
+            s.emit('playerNotification', {
+                title: '👋 Pemain Keluar',
+                message: `${oldName} keluar dari room dan digantikan oleh Bot.`
+            });
+        }
+    });
 }
 
 // ======= GAME ACTION HANDLER (Used by Sockets & Bots) =======
@@ -412,6 +422,17 @@ io.on('connection', (socket) => {
                 }
             });
             broadcastGameState(socket.roomCode);
+
+            // Show notification popup to all human players
+            const joinedName = room.players[replaceIndex].name;
+            room.playerSockets.forEach((s) => {
+                if (s && s.connected && !s.doAction) {
+                    s.emit('playerNotification', {
+                        title: '👋 Pemain Bergabung',
+                        message: `${joinedName} bergabung ke room!`
+                    });
+                }
+            });
         }
     });
 
