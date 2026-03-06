@@ -2,6 +2,9 @@
 // REMI INDONESIA - Multiplayer Client
 // Socket.IO based, all game logic runs on server
 // ============================================================
+import PartySocket from "https://esm.sh/partysocket";
+
+
 
 const CARD_IMAGE_BASE = 'https://raw.githubusercontent.com/hayeah/playing-cards-assets/master/png/';
 const RANK_FULL = { 'A': 'ace', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': '10', 'J': 'jack', 'Q': 'queen', 'K': 'king' };
@@ -169,7 +172,7 @@ const CardRenderer = {
 
 class RemiClient {
     constructor() {
-        this.socket = io();
+        this.socket = null;
         this.myPlayerId = null;
         this.roomCode = null;
         this.gameState = null;
@@ -188,8 +191,42 @@ class RemiClient {
         this.audio = new AudioController();
 
         this.bindLobbyEvents();
-        this.bindSocketEvents();
         this.bindGameEvents();
+    }
+
+    connectToRoom(roomCode) {
+        if (this.socket) {
+            this.socket.close();
+        }
+
+        // Define host (use localhost for local dev context)
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'localhost:1999'
+            : window.location.host;
+
+        this.socket = new PartySocket({
+            host: host,
+            room: roomCode
+        });
+
+        // Add event listener abstraction layer to behave a bit like socket.io for easier migration
+        const handlers = {};
+        this.socket.on = (event, callback) => {
+            handlers[event] = callback;
+        };
+        this.socket.emit = (event, payload) => {
+            this.socket.send(JSON.stringify({ type: event, payload }));
+        };
+
+        this.socket.addEventListener('message', (e) => {
+            let msg;
+            try { msg = JSON.parse(e.data); } catch (err) { return; }
+            if (handlers[msg.type]) {
+                handlers[msg.type](msg.payload);
+            }
+        });
+
+        this.bindSocketEvents();
     }
 
     // ======= LOBBY =======
@@ -248,24 +285,42 @@ class RemiClient {
         document.getElementById('join-player-name').focus();
     }
 
+    generateRoomCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+        return code;
+    }
+
     hostBotGame() {
         const name = document.getElementById('bot-player-name').value.trim();
         if (!name) { this.showToast('Masukkan nama kamu!', 'error'); return; }
-        this.socket.emit('hostBotGame', { playerName: name });
+        const code = this.generateRoomCode();
+        this.connectToRoom(code);
+        this.socket.addEventListener('open', () => {
+            this.socket.emit('hostBotGame', { playerName: name });
+        }, { once: true });
     }
 
     hostGame() {
         const name = document.getElementById('host-player-name').value.trim();
         if (!name) { this.showToast('Masukkan nama kamu!', 'error'); return; }
-        this.socket.emit('hostGame', { playerName: name });
+        const code = this.generateRoomCode();
+        this.connectToRoom(code);
+        this.socket.addEventListener('open', () => {
+            this.socket.emit('hostGame', { playerName: name });
+        }, { once: true });
     }
 
     joinGame() {
         const name = document.getElementById('join-player-name').value.trim();
         if (!name) { this.showToast('Masukkan nama kamu!', 'error'); return; }
-        const code = document.getElementById('room-code-input').value.trim();
+        const code = document.getElementById('room-code-input').value.trim().toUpperCase();
         if (!code) { this.showToast('Masukkan kode room!', 'error'); return; }
-        this.socket.emit('joinGame', { playerName: name, roomCode: code });
+        this.connectToRoom(code);
+        this.socket.addEventListener('open', () => {
+            this.socket.emit('joinGame', { playerName: name, roomCode: code });
+        }, { once: true });
     }
 
     copyRoomCode() {
@@ -278,7 +333,11 @@ class RemiClient {
 
     leaveRoom() {
         this.audio.stopPanic();
-        this.socket.emit('leaveRoom');
+        if (this.socket) {
+            this.socket.emit('leaveRoom');
+            this.socket.close();
+            this.socket = null;
+        }
         this.showLobbyMenu();
     }
 

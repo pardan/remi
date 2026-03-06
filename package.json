@@ -4,11 +4,12 @@
   "description": "Remi Indonesia - Online Multiplayer Card Game",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "partykit deploy",
+    "dev": "partykit dev"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.4"
+    "partykit": "^0.0.106",
+    "partysocket": "^1.0.1"
   }
 }
