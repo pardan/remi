@@ -199,10 +199,10 @@ class RemiClient {
             this.socket.close();
         }
 
-        // Define host (use localhost for local dev context)
+        // Define host (use localhost for local dev context, but point to PartyKit on production)
         const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? 'localhost:1999'
-            : window.location.host;
+            : 'silaturemi.pardan.partykit.dev'; // Alamat server PartyKit Anda
 
         this.socket = new PartySocket({
             host: host,
