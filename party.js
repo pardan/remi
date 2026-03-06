@@ -211,7 +211,11 @@ export default class RemiServer {
 
                 this.state.playerSockets.forEach((s, i) => {
                     if (s && s.connected && !s.doAction && i !== replaceIndex) {
-                        s.emit('playerReplaced', { oldName: '(bot)', botName: this.state.players[replaceIndex].name, playerIndex: replaceIndex });
+                        s.emit('playerReplaced', {
+                            oldName: oldSocket && oldSocket.doAction ? oldSocket.name : '(Pemain Lain)',
+                            botName: joiningSocket.pendingName || this.state.players[replaceIndex].name,
+                            playerIndex: replaceIndex
+                        });
                     }
                 });
                 this.broadcastGameState();
