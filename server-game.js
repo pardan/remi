@@ -189,124 +189,66 @@ class ServerGame {
     }
 
     canMeldWithDiscardCards(player, discardCards) {
-        const allCards = [...player.hand, ...discardCards];
         const game = this;
         const discardIds = new Set(discardCards.map(c => c.id));
         const handIds = new Set(player.hand.map(c => c.id));
         const bottomCard = discardCards[0];
 
+        // Ensure we test combinations including the bottom discard card
+        const otherCards = player.hand.concat(discardCards.slice(1));
+
+        // Filter out irrelevant cards early to massively trim computation
+        const relevantOtherCards = otherCards.filter(c =>
+            c.suit === bottomCard.suit ||
+            c.rank === bottomCard.rank ||
+            c.isJoker(game) ||
+            bottomCard.isJoker(game)
+        );
+
         const isValidPickup = (meldCards) => {
             const fromDiscard = meldCards.filter(c => discardIds.has(c.id)).length;
-            // Must have at least 2 NON-JOKER cards from hand in the meld
-            // BUT: joker-rank cards "acting as themselves" count as non-joker
             const jokersActAsSelf = game.isValidMeldWithoutJokers(meldCards);
             const fromHandReal = meldCards.filter(c => {
                 if (!handIds.has(c.id)) return false;
                 if (!c.isJoker(game)) return true;
-                return jokersActAsSelf; // joker acting as itself = counts as non-joker
+                return jokersActAsSelf;
             }).length;
-            const includesBottom = meldCards.some(c => c.id === bottomCard.id);
             const leavesOneCard = (player.hand.length + discardCards.length - meldCards.length) >= 1;
-            return fromDiscard >= 1 && fromHandReal >= 2 && includesBottom && leavesOneCard;
+            return fromDiscard >= 1 && fromHandReal >= 2 && leavesOneCard;
         };
 
-        const nonJokers = allCards.filter(c => !c.isJoker(game));
-        const jokers = allCards.filter(c => c.isJoker(game));
+        const getCombos = (arr, size) => {
+            const result = [];
+            const runner = (start, combo) => {
+                if (combo.length === size) { result.push(combo); return; }
+                for (let i = start; i < arr.length; i++) runner(i + 1, [...combo, arr[i]]);
+            };
+            runner(0, []);
+            return result;
+        };
 
-        // Check runs (group by suit only)
-        const bySuit = {};
-        nonJokers.forEach(c => {
-            if (jokers.length === 0 && c.rank === 'A') return; // ACE excluded without joker
-            const suit = c.suit;
-            if (!bySuit[suit]) bySuit[suit] = [];
-            bySuit[suit].push(c);
-        });
+        for (let len = 3; len <= Math.min(13, relevantOtherCards.length + 1); len++) {
+            const combos = getCombos(relevantOtherCards, len - 1);
+            for (const combo of combos) {
+                const potentialMeld = [bottomCard, ...combo];
 
-        for (const suit in bySuit) {
-            const suitCards = bySuit[suit].sort((a, b) => a.order - b.order);
-            const unique = []; const seenOrders = new Set();
-            suitCards.forEach(c => { if (!seenOrders.has(c.order)) { seenOrders.add(c.order); unique.push(c); } });
-            for (let i = 0; i < unique.length; i++) {
-                const run = [unique[i]]; let jokersUsed = 0; let lastOrder = unique[i].order;
-                for (let j = i + 1; j < unique.length; j++) {
-                    const gap = unique[j].order - lastOrder - 1;
-                    if (gap === 0) { run.push(unique[j]); lastOrder = unique[j].order; }
-                    else if (gap <= jokers.length - jokersUsed) {
-                        for (let g = 0; g < gap; g++) { run.push(jokers[jokersUsed++]); }
-                        run.push(unique[j]); lastOrder = unique[j].order;
-                    } else break;
-                }
+                if (!isValidPickup(potentialMeld)) continue;
 
-                // Allow substrings of this maximal run
-                for (let len = 3; len <= run.length; len++) {
-                    for (let start = 0; start <= run.length - len; start++) {
-                        const subRun = run.slice(start, start + len);
-                        if (isValidPickup(subRun)) {
-                            const runNonJokers = subRun.filter(c => !c.isJoker(game));
-                            const groups = new Set(runNonJokers.map(c => getRunGroup(c.rank)));
-                            const hasAce = runNonJokers.some(c => c.rank === 'A');
+                const validation = game.validateMeld(potentialMeld);
+                if (validation.valid) {
+                    if (player.hasRun) return true;
+                    if (validation.type === 'run') return true;
+                    if (validation.type === 'set' && potentialMeld.length === 4 && potentialMeld.filter(c => !c.isJoker(game)).every(c => c.rank === 'A')) return true;
 
-                            // Strict rule: Never mix numbers and faces
-                            if (groups.size > 1) continue;
-
-                            // Strict rule: Ace cannot be used in runs without a joker
-                            if (jokers.length === 0 && hasAce) continue;
-
-                            return true;
-                        }
+                    const usedIds = new Set(potentialMeld.map(c => c.id));
+                    const remainingHand = player.hand.filter(c => !usedIds.has(c.id));
+                    const handMelds = game.findHandMelds(remainingHand);
+                    if (handMelds.melds.some(m => m.type === 'run' || (m.type === 'set' && m.cards.length === 4 && m.cards.filter(c => !c.isJoker(game)).every(c => c.rank === 'A')))) {
+                        return true;
                     }
                 }
             }
         }
-
-        const checkSetWithRunInHand = (setCards) => {
-            if (player.hasRun) return true;
-
-            // 4 As is allowed as first meld
-            const isAllAces = setCards.filter(c => !c.isJoker(game)).every(c => c.rank === 'A') && setCards.length === 4;
-            if (isAllAces) return true;
-
-            const setIds = new Set(setCards.map(c => c.id));
-            const remainingHand = player.hand.filter(c => !setIds.has(c.id));
-            const handMelds = game.findHandMelds(remainingHand).melds;
-            return handMelds.some(m => m.type === 'run');
-        };
-
-        // Check sets
-        const byRank = {};
-        nonJokers.forEach(c => { if (!byRank[c.rank]) byRank[c.rank] = []; byRank[c.rank].push(c); });
-        for (const rank in byRank) {
-            const group = byRank[rank];
-            const uniqueSuits = []; const seen = new Set();
-            group.forEach(c => { if (!seen.has(c.suit)) { seen.add(c.suit); uniqueSuits.push(c); } });
-
-            if (uniqueSuits.length >= 3) {
-                const setCards = uniqueSuits.slice(0, Math.min(4, uniqueSuits.length));
-                if (isValidPickup(setCards) && checkSetWithRunInHand(setCards)) return true;
-                // Also try adding a joker to make a 4-card set (e.g. 3 Aces + Joker)
-                if (uniqueSuits.length === 3 && jokers.length > 0) {
-                    const setCardsWithJoker = [...uniqueSuits, jokers[0]];
-                    if (isValidPickup(setCardsWithJoker) && checkSetWithRunInHand(setCardsWithJoker)) return true;
-                }
-            }
-            if (uniqueSuits.length === 2 && jokers.length > 0) {
-                const setCards = [...uniqueSuits, jokers[0]];
-                if (isValidPickup(setCards) && checkSetWithRunInHand(setCards)) return true;
-            }
-        }
-
-        // 4 aces
-        const aces = allCards.filter(c => c.rank === 'A' && !c.isJoker(game));
-        if (aces.length >= 3) {
-            const setCards = aces.slice(0, Math.min(4, aces.length));
-            if (isValidPickup(setCards) && checkSetWithRunInHand(setCards)) return true;
-            // Also try 3 Aces + Joker as 4 Aces substitute
-            if (aces.length === 3 && jokers.length > 0) {
-                const setCardsWithJoker = [...aces, jokers[0]];
-                if (isValidPickup(setCardsWithJoker) && checkSetWithRunInHand(setCardsWithJoker)) return true;
-            }
-        }
-
         return false;
     }
     drawFromDiscard(playerId, count = 1) {
