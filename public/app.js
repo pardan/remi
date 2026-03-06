@@ -24,7 +24,9 @@ class AudioController {
             select: new Audio('/audio/card_select.mp3'),
             turn: new Audio('/audio/whistle.mp3'),
             gunshot: new Audio('/audio/gunshot.mp3'),
-            panic: new Audio('/audio/Panic_Attack.mp3')
+            panic: new Audio('/audio/Panic_Attack.mp3'),
+            join: new Audio('/audio/join.mp3'),
+            leave: new Audio('/audio/leave.mp3')
         };
 
         // Configure looping sounds
@@ -52,6 +54,8 @@ class AudioController {
         this.sounds.select.volume = this.sfxVolume;
         this.sounds.turn.volume = this.sfxVolume;
         this.sounds.panic.volume = this.sfxVolume;
+        this.sounds.join.volume = this.sfxVolume;
+        this.sounds.leave.volume = this.sfxVolume;
     }
 
     setMusicVolume(vol) {
@@ -544,7 +548,15 @@ class RemiClient {
             document.getElementById('notify-modal-title').textContent = title;
             document.getElementById('notify-modal-message').textContent = message;
             document.getElementById('notify-modal').classList.add('active');
-            this.audio.play('turn');
+
+            if (title.includes('Bergabung')) {
+                this.audio.play('join');
+            } else if (title.includes('Keluar')) {
+                this.audio.play('leave');
+            } else {
+                this.audio.play('turn');
+            }
+
             // Auto-dismiss after 5 seconds
             if (this._notifyTimer) clearTimeout(this._notifyTimer);
             this._notifyTimer = setTimeout(() => {
