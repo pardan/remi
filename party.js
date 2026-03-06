@@ -256,6 +256,15 @@ export default class RemiServer {
             return;
         }
 
+        if (action === 'sendEmoji') {
+            this.state.playerSockets.forEach((s) => {
+                if (s && s.connected) {
+                    s.emit('showEmoji', { playerId: socket.playerIndex, emoji: payload.emoji });
+                }
+            });
+            return;
+        }
+
         if (action === 'hostRestartRound' && socket.playerIndex === this.state.hostIndex) {
             if (!this.state.game) return;
             this.state.game.initRound();

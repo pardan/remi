@@ -590,9 +590,47 @@ class RemiClient {
             this.showToast(message, 'error');
             this.showLobbyMenu();
         });
+
+        this.socket.on('showEmoji', ({ playerId, emoji }) => {
+            this.showEmojiAnimation(playerId, emoji);
+        });
     }
 
     // ======= GAME EVENTS (UI) =======
+
+    showEmojiAnimation(playerId, emoji) {
+        let targetZone = null;
+        if (playerId === this.myPlayerId) {
+            targetZone = document.getElementById('player-info');
+        } else {
+            const diff = (playerId - this.myPlayerId + 4) % 4;
+            if (diff === 1) targetZone = document.getElementById('opponent-left')?.querySelector('.opponent-info');
+            else if (diff === 2) targetZone = document.getElementById('opponent-top')?.querySelector('.opponent-info');
+            else if (diff === 3) targetZone = document.getElementById('opponent-right')?.querySelector('.opponent-info');
+        }
+
+        if (!targetZone) return;
+
+        const emojiEl = document.createElement('div');
+        const isMobile = window.innerWidth <= 768;
+        let isOpponent = playerId !== this.myPlayerId;
+
+        if (isMobile && isOpponent) {
+            emojiEl.className = 'floating-emoji-down';
+        } else {
+            emojiEl.className = 'floating-emoji';
+        }
+        emojiEl.textContent = emoji;
+
+        targetZone.style.position = 'relative';
+        targetZone.appendChild(emojiEl);
+
+        setTimeout(() => {
+            if (targetZone.contains(emojiEl)) {
+                targetZone.removeChild(emojiEl);
+            }
+        }, 2500);
+    }
 
     bindGameEvents() {
         document.getElementById('draw-pile').addEventListener('click', () => this.onDrawPileClick());
@@ -601,6 +639,27 @@ class RemiClient {
         document.getElementById('btn-discard').addEventListener('click', () => this.onDiscardClick());
         document.getElementById('btn-next-round').addEventListener('click', () => this.onNextRound());
         document.getElementById('btn-cekih').addEventListener('click', () => this.onCekihClick());
+
+        // Emoji toggle
+        const btnEmoji = document.getElementById('btn-emoji-toggle');
+        const emojiPopup = document.getElementById('emoji-popup');
+        if (btnEmoji && emojiPopup) {
+            btnEmoji.addEventListener('click', (e) => {
+                e.stopPropagation();
+                emojiPopup.classList.toggle('hidden');
+            });
+            document.addEventListener('click', () => {
+                emojiPopup.classList.add('hidden');
+            });
+            emojiPopup.querySelectorAll('.emoji-option').forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const emoji = e.target.textContent;
+                    this.socket.emit('sendEmoji', { emoji });
+                    // Removed: emojiPopup.classList.add('hidden');
+                });
+            });
+        }
 
         // Turn modal OK
         document.getElementById('btn-turn-ok').addEventListener('click', () => {
