@@ -240,6 +240,7 @@ class RemiClient {
         // Main menu buttons -> show sub-sections
         document.getElementById('btn-host-bot').addEventListener('click', () => this.showBotSection());
         document.getElementById('btn-host').addEventListener('click', () => this.showHostSection());
+        document.getElementById('btn-scan').addEventListener('click', () => this.showScanSection());
         document.getElementById('btn-join').addEventListener('click', () => this.showJoinSection());
 
         // Bot section
@@ -265,6 +266,14 @@ class RemiClient {
         document.getElementById('room-code-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.joinGame();
         });
+        document.getElementById('btn-scan').addEventListener('click', () => this.showScanSection());
+
+        // Scan section
+        document.getElementById('btn-scan-refresh').addEventListener('click', () => this.scanRooms());
+        document.getElementById('btn-scan-cancel').addEventListener('click', () => this.showJoinSection());
+        document.getElementById('scan-player-name').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.scanRooms();
+        });
 
         // Waiting room
         document.getElementById('btn-copy-code').addEventListener('click', () => this.copyRoomCode());
@@ -284,8 +293,19 @@ class RemiClient {
         document.getElementById('host-player-name').focus();
     }
 
+    showScanSection() {
+        document.getElementById('join-section').classList.add('hidden');
+        document.getElementById('scan-section').classList.remove('hidden');
+        // Retrieve last used name if available
+        const lastUsedName = document.getElementById('join-player-name').value || document.getElementById('host-player-name').value;
+        if (lastUsedName) document.getElementById('scan-player-name').value = lastUsedName;
+        document.getElementById('scan-player-name').focus();
+        this.scanRooms();
+    }
+
     showJoinSection() {
         document.getElementById('lobby-menu').classList.add('hidden');
+        document.getElementById('scan-section').classList.add('hidden');
         document.getElementById('join-section').classList.remove('hidden');
         document.getElementById('join-player-name').focus();
     }
@@ -295,6 +315,70 @@ class RemiClient {
         let code = '';
         for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
         return code;
+    }
+
+    async scanRooms() {
+        const resultsContainer = document.getElementById('scan-results-container');
+        resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: var(--gold); padding: 10px;">🔍 Mencari room aktif...</p>';
+
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:1999'
+            : 'https://silaturemi.pardan.partykit.dev';
+
+        try {
+            const res = await fetch(`${host}/parties/main/lobby`);
+            if (!res.ok) throw new Error('Network response was not ok');
+            const rooms = await res.json();
+
+            if (rooms.length === 0) {
+                resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #ff6b6b; padding: 10px;">Belum ada room publik yang aktif.</p>';
+                return;
+            }
+
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">';
+            html += '<tr style="border-bottom: 1px solid var(--glass-border); color: var(--gold);"><th>Room</th><th>Host</th><th>Status</th><th>Pemain</th><th>Aksi</th></tr>';
+
+            rooms.forEach(r => {
+                const isPlaying = r.status === 'Bermain';
+                const statusColor = isPlaying ? '#ff6b6b' : '#2ecc71';
+
+                html += `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 6px 2px;"><b>${r.id}</b></td>
+                    <td style="padding: 6px 2px;">${r.host}</td>
+                    <td style="padding: 6px 2px; color: ${statusColor};"><i>${r.status || 'Menunggu'}</i></td>
+                    <td style="padding: 6px 2px; text-align: center;">${r.humanCount}/${r.maxPlayers}</td>
+                    <td style="padding: 6px 2px; text-align: right;">
+                        <button class="btn btn-success btn-small join-scanned-btn" data-room="${r.id}" ${isPlaying ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : 'style="padding: 4px 8px; font-size: 0.7rem;"'}>Join</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</table>';
+
+            resultsContainer.innerHTML = html;
+
+            const nameInput = document.getElementById('scan-player-name');
+            // Attach event listeners to join buttons
+            resultsContainer.querySelectorAll('.join-scanned-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const roomCode = e.target.getAttribute('data-room');
+                    const name = nameInput.value.trim();
+                    if (!name) {
+                        this.showToast('Masukkan nama kamu dulu di atas!', 'error');
+                        nameInput.focus();
+                        return;
+                    }
+
+                    this.connectToRoom(roomCode);
+                    this.socket.addEventListener('open', () => {
+                        this.socket.emit('joinGame', { playerName: name, roomCode: roomCode });
+                    }, { once: true });
+                });
+            });
+
+        } catch (e) {
+            resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #ff6b6b; padding: 10px;">Gagal mengambil daftar room. Pastikan server aktif.</p>';
+        }
     }
 
     hostBotGame() {
@@ -328,6 +412,67 @@ class RemiClient {
         }, { once: true });
     }
 
+    async scanRooms() {
+        const resultsContainer = document.getElementById('scan-results-container');
+        resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: var(--gold); padding: 10px;">🔍 Mencari room aktif...</p>';
+
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:1999'
+            : 'https://silaturemi.pardan.partykit.dev';
+
+        try {
+            const res = await fetch(`${host}/parties/main/lobby`);
+            if (!res.ok) throw new Error('Network response was not ok');
+            const rooms = await res.json();
+
+            if (rooms.length === 0) {
+                resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #ff6b6b; padding: 10px;">Belum ada room publik yang aktif.</p>';
+                return;
+            }
+
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">';
+            html += '<tr style="border-bottom: 1px solid var(--glass-border); color: var(--gold);"><th>Room</th><th>Host</th><th>Pemain</th><th>Aksi</th></tr>';
+
+            rooms.forEach(r => {
+                html += `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 6px 2px;"><b>${r.id}</b></td>
+                    <td style="padding: 6px 2px;">${r.host}</td>
+                    <td style="padding: 6px 2px; text-align: center;">${r.humanCount}/${r.maxPlayers}</td>
+                    <td style="padding: 6px 2px; text-align: right;">
+                        <button class="btn btn-success btn-small join-scanned-btn" data-room="${r.id}" style="padding: 4px 8px; font-size: 0.7rem;">Join</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</table>';
+
+            resultsContainer.innerHTML = html;
+
+            const nameInput = document.getElementById('scan-player-name');
+            // Attach event listeners to join buttons
+            resultsContainer.querySelectorAll('.join-scanned-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const roomCode = e.target.getAttribute('data-room');
+                    const name = nameInput.value.trim();
+                    if (!name) {
+                        this.showToast('Masukkan nama kamu dulu di atas!', 'error');
+                        nameInput.focus();
+                        return;
+                    }
+                    localStorage.setItem('remi_playerName', name);
+
+                    this.connectToRoom(roomCode);
+                    this.socket.addEventListener('open', () => {
+                        this.socket.emit('joinGame', { playerName: name, roomCode: roomCode });
+                    }, { once: true });
+                });
+            });
+
+        } catch (e) {
+            resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #ff6b6b; padding: 10px;">Gagal mengambil daftar room. Coba lagi.</p>';
+        }
+    }
+
     copyRoomCode() {
         navigator.clipboard.writeText(this.roomCode).then(() => {
             this.showToast('Kode room disalin!', 'success');
@@ -359,6 +504,7 @@ class RemiClient {
         document.getElementById('lobby-menu').classList.remove('hidden');
         document.getElementById('bot-section').classList.add('hidden');
         document.getElementById('host-section').classList.add('hidden');
+        document.getElementById('scan-section').classList.add('hidden');
         document.getElementById('join-section').classList.add('hidden');
         document.getElementById('waiting-room').classList.add('hidden');
         document.getElementById('gameover-modal').classList.remove('active');
@@ -369,6 +515,7 @@ class RemiClient {
         document.getElementById('lobby-menu').classList.add('hidden');
         document.getElementById('bot-section').classList.add('hidden');
         document.getElementById('host-section').classList.add('hidden');
+        document.getElementById('scan-section').classList.add('hidden');
         document.getElementById('join-section').classList.add('hidden');
         document.getElementById('waiting-room').classList.remove('hidden');
     }

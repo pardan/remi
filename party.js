@@ -36,6 +36,87 @@ export default class RemiServer {
         // Keep a map of raw conn.id -> SocketWrapper
         this.socketWrappers = new Map();
         // Setup a global function to allow testing if necessary
+
+        // Lobby state (only used if this.room.id === 'lobby')
+        this.activeGames = new Map();
+    }
+
+    // Handle HTTP requests (used for the lobby to serve room lists to clients)
+    async onRequest(req) {
+        if (this.room.id === 'lobby') {
+            if (req.method === 'GET') {
+                const rooms = Array.from(this.activeGames.values());
+                return new Response(JSON.stringify(rooms), {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    }
+                });
+            } else if (req.method === 'POST') {
+                try {
+                    const data = await req.json();
+                    if (data.action === 'upsert') {
+                        this.activeGames.set(data.room.id, data.room);
+                    } else if (data.action === 'delete') {
+                        this.activeGames.delete(data.roomId);
+                    }
+                    return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*' } });
+                } catch (e) {
+                    return new Response('Error', { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } });
+                }
+            } else if (req.method === 'OPTIONS') {
+                return new Response(null, {
+                    headers: {
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    }
+                });
+            }
+        }
+        return new Response("Not found", { status: 404 });
+    }
+
+    // Helper to notify the central lobby room about this room's state
+    async notifyLobby() {
+        if (this.room.id === 'lobby') return; // Don't notify self
+
+        try {
+            const lobbyParty = this.room.context.parties.main.get('lobby');
+
+            // If room is empty, remove from public list
+            if (this.state.players.length === 0) {
+                await lobbyParty.fetch({
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'delete', roomId: this.room.id })
+                });
+                return;
+            }
+
+            // Otherwise, update the lobby with current info
+            const hostName = this.state.players[0]?.name || 'Unknown';
+            // Count actual human players (not bots)
+            const humanCount = this.state.playerSockets.filter(s => s && s.connected && !s.doAction).length;
+            const status = this.state.started ? "Bermain" : "Menunggu";
+
+            await lobbyParty.fetch({
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'upsert',
+                    room: {
+                        id: this.room.id,
+                        host: hostName,
+                        humanCount: humanCount,
+                        maxPlayers: NUM_PLAYERS,
+                        status: status
+                    }
+                })
+            });
+        } catch (e) {
+            console.error('[Lobby Sync Error]', e.message);
+        }
     }
 
     onClose(conn) {
@@ -109,6 +190,7 @@ export default class RemiServer {
                 this.startGame();
             } else {
                 this.broadcastLobby();
+                this.notifyLobby();
             }
             return;
         }
@@ -148,6 +230,7 @@ export default class RemiServer {
             console.log(`[Room ${this.room.id}] ${playerName} joined as Player ${playerIndex}`);
             socket.emit('joinedRoom', { roomCode: this.room.id, playerIndex });
             this.broadcastLobby();
+            this.notifyLobby();
 
             if (this.state.players.length === NUM_PLAYERS) {
                 this.fillBotsAndStart();
@@ -219,6 +302,7 @@ export default class RemiServer {
                     }
                 });
                 this.broadcastGameState();
+                this.notifyLobby();
 
                 const joinedName = this.state.players[replaceIndex].name;
                 this.state.playerSockets.forEach((s) => {
@@ -374,6 +458,7 @@ export default class RemiServer {
                 if (socket.doAction) socket.connected = false;
             }
         });
+        this.notifyLobby();
         // PartyKit cleans up the room when all connections close naturally
     }
 
@@ -410,6 +495,7 @@ export default class RemiServer {
         });
 
         this.broadcastGameState();
+        this.notifyLobby();
     }
 
     handleDisconnect(socket) {
@@ -438,6 +524,7 @@ export default class RemiServer {
             if (this.state.players.length > 0) {
                 this.broadcastLobby();
             }
+            this.notifyLobby();
         }
 
         delete socket.roomCode;

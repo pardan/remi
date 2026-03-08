@@ -68,8 +68,27 @@
                         style="text-transform: uppercase; text-align: center; font-size: 1.4rem; letter-spacing: 3px;">
                 </div>
                 <div class="lobby-buttons">
-                    <button class="btn btn-success" id="btn-join-confirm">✅ Gabung</button>
+                    <button class="btn btn-success" id="btn-join-confirm">✅ Gabung Kode</button>
+                    <button class="btn btn-primary" id="btn-scan">🔍 Scan Room Publik</button>
                     <button class="btn btn-danger" id="btn-join-cancel">❌ Batal</button>
+                </div>
+            </div>
+
+            <!-- Scan Room Section -->
+            <div id="scan-section" class="lobby-section hidden">
+                <div class="name-input-group">
+                    <label for="scan-player-name">Nama Kamu</label>
+                    <input type="text" id="scan-player-name" placeholder="Masukkan nama..." maxlength="12"
+                        autocomplete="off">
+                </div>
+                <div class="scan-results" id="scan-results-container"
+                    style="max-height: 200px; overflow-y: auto; margin-top: 10px; border: 1px solid var(--glass-border); border-radius: 8px; padding: 8px;">
+                    <p style="text-align: center; font-size: 0.8rem; color: var(--gold); padding: 10px;">Mencari room
+                        aktif...</p>
+                </div>
+                <div class="lobby-buttons">
+                    <button class="btn btn-primary" id="btn-scan-refresh">🔄 Segarkan</button>
+                    <button class="btn btn-danger" id="btn-scan-cancel">❌ Kembali</button>
                 </div>
             </div>
 
