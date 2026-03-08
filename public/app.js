@@ -1089,7 +1089,8 @@ class RemiClient {
         area.className = `discard-pile-area ${isDrawPhase && s.discardPile.length > 0 ? 'clickable' : ''}`;
 
         s.discardPile.forEach(card => {
-            const el = CardRenderer.createCardElement(card, true, false);
+            const isJoker = s.jokerRevealed && card.rank === s.jokerRank;
+            const el = CardRenderer.createCardElement(card, !isJoker, false, isJoker);
             container.appendChild(el);
         });
 
