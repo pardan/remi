@@ -825,6 +825,11 @@ class RemiClient {
                     this.unreadChatCount = 0;
                     const badge = document.getElementById('chat-badge');
                     if (badge) badge.classList.add('hidden');
+
+                    // Force scroll down on mobile so virtual keyboard doesn't hide it
+                    setTimeout(() => {
+                        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                    }, 100);
                 }
             });
             chatPopup.addEventListener('click', (e) => {

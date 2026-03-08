@@ -41,6 +41,16 @@ export default class RemiServer {
         this.activeGames = new Map();
     }
 
+    // Load persisted lobby state when room spins up
+    async onStart() {
+        if (this.room.id === 'lobby') {
+            const savedGames = await this.room.storage.get('activeGames');
+            if (savedGames) {
+                this.activeGames = new Map(savedGames);
+            }
+        }
+    }
+
     // Handle HTTP requests (used for the lobby to serve room lists to clients)
     async onRequest(req) {
         if (this.room.id === 'lobby') {
@@ -60,6 +70,8 @@ export default class RemiServer {
                     } else if (data.action === 'delete') {
                         this.activeGames.delete(data.roomId);
                     }
+                    // Persist state across instances
+                    await this.room.storage.put('activeGames', Array.from(this.activeGames.entries()));
                     return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*' } });
                 } catch (e) {
                     return new Response('Error', { status: 400, headers: { 'Access-Control-Allow-Origin': '*' } });
