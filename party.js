@@ -269,6 +269,21 @@ export default class RemiServer {
             return;
         }
 
+        if (action === 'sendChat') {
+            const senderName = this.state.players[socket.playerIndex]?.name || `Player ${socket.playerIndex}`;
+            this.state.playerSockets.forEach((s) => {
+                if (s && s.connected) {
+                    s.emit('receiveChat', {
+                        senderName,
+                        message: payload.message,
+                        playerId: socket.playerIndex,
+                        isSystem: false
+                    });
+                }
+            });
+            return;
+        }
+
         if (action === 'hostRestartRound' && socket.playerIndex === this.state.hostIndex) {
             if (!this.state.game) return;
             this.state.game.initRound();

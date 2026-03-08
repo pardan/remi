@@ -209,6 +209,20 @@
                             <span class="emoji-option">🤯</span>
                         </div>
                     </div>
+                    <div class="chat-container">
+                        <button class="btn btn-icon btn-small" id="btn-chat-toggle" title="Chat">
+                            💬
+                            <span id="chat-badge" class="chat-badge hidden"></span>
+                        </button>
+                        <div id="chat-popup" class="chat-popup hidden">
+                            <div id="chat-messages" class="chat-messages"></div>
+                            <form id="chat-form" class="chat-form">
+                                <input type="text" id="chat-input" placeholder="Ketik pesan..." maxlength="100"
+                                    autocomplete="off">
+                                <button type="submit" class="btn btn-primary btn-small">Kirim</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

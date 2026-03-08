@@ -191,6 +191,7 @@ class RemiClient {
         this.gunshotFired = false;
         this.dealAnimationPending = false;
         this.dealAnimationPlaying = false;
+        this.unreadChatCount = 0;
 
         this.audio = new AudioController();
 
@@ -606,6 +607,10 @@ class RemiClient {
         this.socket.on('showEmoji', ({ playerId, emoji }) => {
             this.showEmojiAnimation(playerId, emoji);
         });
+
+        this.socket.on('receiveChat', ({ senderName, message, playerId, isSystem }) => {
+            this.displayChatMessage(senderName, message, playerId, isSystem);
+        });
     }
 
     // ======= GAME EVENTS (UI) =======
@@ -644,6 +649,50 @@ class RemiClient {
         }, 2500);
     }
 
+    displayChatMessage(senderName, message, playerId, isSystem = false) {
+        const messagesContainer = document.getElementById('chat-messages');
+        if (!messagesContainer) return;
+
+        const msgEl = document.createElement('div');
+        msgEl.className = 'chat-message';
+
+        if (isSystem) {
+            msgEl.classList.add('system');
+            msgEl.textContent = message;
+        } else {
+            if (playerId === this.myPlayerId) {
+                msgEl.classList.add('self');
+            }
+            msgEl.innerHTML = `<span class="sender">${senderName}:</span> <span class="text">${this.escapeHTML(message)}</span>`;
+            this.audio.play('select'); // play a subtle sound for incoming chat
+        }
+
+        messagesContainer.appendChild(msgEl);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        const chatPopup = document.getElementById('chat-popup');
+        if (chatPopup && chatPopup.classList.contains('hidden') && !isSystem && playerId !== this.myPlayerId) {
+            this.unreadChatCount++;
+            const badge = document.getElementById('chat-badge');
+            if (badge) {
+                badge.textContent = this.unreadChatCount > 9 ? '9+' : this.unreadChatCount;
+                badge.classList.remove('hidden');
+            }
+        }
+    }
+
+    escapeHTML(str) {
+        return str.replace(/[&<>'"]/g,
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
+
     bindGameEvents() {
         document.getElementById('draw-pile').addEventListener('click', () => this.onDrawPileClick());
         document.getElementById('discard-pile-area').addEventListener('click', (e) => this.onDiscardPileClick(e));
@@ -659,6 +708,7 @@ class RemiClient {
             btnEmoji.addEventListener('click', (e) => {
                 e.stopPropagation();
                 emojiPopup.classList.toggle('hidden');
+                document.getElementById('chat-popup').classList.add('hidden'); // close chat if open
             });
             document.addEventListener('click', () => {
                 emojiPopup.classList.add('hidden');
@@ -671,6 +721,42 @@ class RemiClient {
                     // Removed: emojiPopup.classList.add('hidden');
                 });
             });
+        }
+
+        // Chat toggle & logic
+        const btnChat = document.getElementById('btn-chat-toggle');
+        const chatPopup = document.getElementById('chat-popup');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        if (btnChat && chatPopup) {
+            btnChat.addEventListener('click', (e) => {
+                e.stopPropagation();
+                chatPopup.classList.toggle('hidden');
+                if (emojiPopup) emojiPopup.classList.add('hidden'); // close emoji if open
+                if (!chatPopup.classList.contains('hidden')) {
+                    chatInput.focus();
+                    this.unreadChatCount = 0;
+                    const badge = document.getElementById('chat-badge');
+                    if (badge) badge.classList.add('hidden');
+                }
+            });
+            chatPopup.addEventListener('click', (e) => {
+                e.stopPropagation(); // keep popup open when clicking inside
+            });
+            document.addEventListener('click', () => {
+                chatPopup.classList.add('hidden');
+            });
+
+            if (chatForm) {
+                chatForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const msg = chatInput.value.trim();
+                    if (msg) {
+                        this.socket.emit('sendChat', { message: msg });
+                        chatInput.value = '';
+                    }
+                });
+            }
         }
 
         // Turn modal OK
