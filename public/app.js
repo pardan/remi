@@ -205,8 +205,8 @@ class RemiClient {
         }
 
         // Define host (use localhost for local dev context, but point to PartyKit on production)
-        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'localhost:1999'
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')
+            ? window.location.host
             : 'silaturemi.pardan.partykit.dev'; // Alamat server PartyKit Anda
 
         this.socket = new PartySocket({
@@ -321,8 +321,8 @@ class RemiClient {
         const resultsContainer = document.getElementById('scan-results-container');
         resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: var(--gold); padding: 10px;">🔍 Mencari room aktif...</p>';
 
-        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:1999'
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')
+            ? window.location.origin
             : 'https://silaturemi.pardan.partykit.dev';
 
         try {
@@ -349,7 +349,7 @@ class RemiClient {
                     <td style="padding: 6px 2px; color: ${statusColor};"><i>${r.status || 'Menunggu'}</i></td>
                     <td style="padding: 6px 2px; text-align: center;">${r.humanCount}/${r.maxPlayers}</td>
                     <td style="padding: 6px 2px; text-align: right;">
-                        <button class="btn btn-success btn-small join-scanned-btn" data-room="${r.id}" ${isPlaying ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : 'style="padding: 4px 8px; font-size: 0.7rem;"'}>Join</button>
+                        <button class="btn btn-success btn-small join-scanned-btn" data-room="${r.id}" style="padding: 4px 8px; font-size: 0.7rem;">Join</button>
                     </td>
                 </tr>`;
             });
@@ -412,66 +412,6 @@ class RemiClient {
         }, { once: true });
     }
 
-    async scanRooms() {
-        const resultsContainer = document.getElementById('scan-results-container');
-        resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: var(--gold); padding: 10px;">🔍 Mencari room aktif...</p>';
-
-        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? 'http://localhost:1999'
-            : 'https://silaturemi.pardan.partykit.dev';
-
-        try {
-            const res = await fetch(`${host}/parties/main/lobby`);
-            if (!res.ok) throw new Error('Network response was not ok');
-            const rooms = await res.json();
-
-            if (rooms.length === 0) {
-                resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #ff6b6b; padding: 10px;">Belum ada room publik yang aktif.</p>';
-                return;
-            }
-
-            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">';
-            html += '<tr style="border-bottom: 1px solid var(--glass-border); color: var(--gold);"><th>Room</th><th>Host</th><th>Pemain</th><th>Aksi</th></tr>';
-
-            rooms.forEach(r => {
-                html += `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 6px 2px;"><b>${r.id}</b></td>
-                    <td style="padding: 6px 2px;">${r.host}</td>
-                    <td style="padding: 6px 2px; text-align: center;">${r.humanCount}/${r.maxPlayers}</td>
-                    <td style="padding: 6px 2px; text-align: right;">
-                        <button class="btn btn-success btn-small join-scanned-btn" data-room="${r.id}" style="padding: 4px 8px; font-size: 0.7rem;">Join</button>
-                    </td>
-                </tr>`;
-            });
-            html += '</table>';
-
-            resultsContainer.innerHTML = html;
-
-            const nameInput = document.getElementById('scan-player-name');
-            // Attach event listeners to join buttons
-            resultsContainer.querySelectorAll('.join-scanned-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const roomCode = e.target.getAttribute('data-room');
-                    const name = nameInput.value.trim();
-                    if (!name) {
-                        this.showToast('Masukkan nama kamu dulu di atas!', 'error');
-                        nameInput.focus();
-                        return;
-                    }
-                    localStorage.setItem('remi_playerName', name);
-
-                    this.connectToRoom(roomCode);
-                    this.socket.addEventListener('open', () => {
-                        this.socket.emit('joinGame', { playerName: name, roomCode: roomCode });
-                    }, { once: true });
-                });
-            });
-
-        } catch (e) {
-            resultsContainer.innerHTML = '<p style="text-align: center; font-size: 0.8rem; color: #ff6b6b; padding: 10px;">Gagal mengambil daftar room. Coba lagi.</p>';
-        }
-    }
 
     copyRoomCode() {
         navigator.clipboard.writeText(this.roomCode).then(() => {

@@ -86,7 +86,7 @@ export default class RemiServer {
 
             // If room is empty, remove from public list
             if (this.state.players.length === 0) {
-                await lobbyParty.fetch({
+                await lobbyParty.fetch("/", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'delete', roomId: this.room.id })
@@ -95,12 +95,15 @@ export default class RemiServer {
             }
 
             // Otherwise, update the lobby with current info
-            const hostName = this.state.players[0]?.name || 'Unknown';
+            const hostSocket = this.state.playerSockets[this.state.hostIndex];
+            const hostName = hostSocket && !hostSocket.doAction && this.state.players[this.state.hostIndex]
+                ? this.state.players[this.state.hostIndex].name
+                : 'Unknown';
             // Count actual human players (not bots)
             const humanCount = this.state.playerSockets.filter(s => s && s.connected && !s.doAction).length;
             const status = this.state.started ? "Bermain" : "Menunggu";
 
-            await lobbyParty.fetch({
+            await lobbyParty.fetch("/", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -458,6 +461,7 @@ export default class RemiServer {
                 if (socket.doAction) socket.connected = false;
             }
         });
+        this.state.players = []; // Force empty to delete room from lobby
         this.notifyLobby();
         // PartyKit cleans up the room when all connections close naturally
     }
@@ -560,6 +564,7 @@ export default class RemiServer {
 
         this.state.game.deal();
         this.broadcastGameState();
+        this.notifyLobby();
     }
 
     handleGameAction(playerIndex, action, payload = {}) {
