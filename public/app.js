@@ -589,14 +589,14 @@ class RemiClient {
         });
 
         this.socket.on('jokerDiscarded', ({ playerName, penalty, card }) => {
-            this.showToast(`⚠️ ${playerName} buang Joker! ${penalty} poin`, 'error');
+            this.showToast(`⚠️ ${playerName} buang Joker!`, 'error');
         });
 
         this.socket.on('jokerRevealed', ({ jokerCard, jokerRank, penalties }) => {
             this.renderJokerCard(jokerCard);
             penalties.forEach(p => {
                 const name = this.gameState?.players[p.playerId]?.name || `Player ${p.playerId}`;
-                this.showToast(`⚠️ ${name} buang kartu joker! ${p.penalty} poin`, 'warning');
+                this.showToast(`⚠️ ${name} buang kartu joker!`, 'warning');
             });
         });
 
@@ -1508,7 +1508,7 @@ class RemiClient {
         }
 
         scores.forEach((detail) => {
-            const { playerName, meldedPositive, handPositive, handNegative, tutupDeckBonus, roundScore, totalScore, isWinner, cekihPenalty } = detail;
+            const { playerName, meldedPositive, handPositive, handNegative, tutupDeckBonus, buangJokerPenalty, roundScore, totalScore, isWinner, cekihPenalty } = detail;
             const tr = document.createElement('tr');
             tr.className = isWinner ? 'winner-row' : '';
 
@@ -1518,6 +1518,7 @@ class RemiClient {
             if (handNegative < 0) breakdown += `<span class="score-neg">Sisa ${handNegative}</span> `;
             if (tutupDeckBonus > 0) breakdown += `<span class="score-bonus">Tutup +${tutupDeckBonus}</span> `;
             if (cekihPenalty < 0) breakdown += `<span class="score-neg" style="color:#ff4a5e; font-weight:bold;">Cekih ${cekihPenalty}</span> `;
+            if (buangJokerPenalty < 0) breakdown += `<span class="score-neg">Buang Joker ${buangJokerPenalty}</span> `;
 
             tr.innerHTML = `
                 <td>${playerName} ${isWinner ? '👑' : ''}</td>

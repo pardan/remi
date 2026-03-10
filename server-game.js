@@ -61,7 +61,7 @@ class ServerGame {
         this.deck = [];
         this.discardPile = [];
         this.players = playerNames.map((name, i) => ({
-            id: i, name, hand: [], hasMelded: false, hasRun: false, score: 0, hasDrawnFromDiscardThisRound: false, cekihDeclared: false
+            id: i, name, hand: [], hasMelded: false, hasRun: false, score: 0, hasDrawnFromDiscardThisRound: false, cekihDeclared: false, buangJokerPenalty: 0
         }));
         this.melds = [];
         this.currentPlayerIndex = 0;
@@ -89,7 +89,7 @@ class ServerGame {
     initRound() {
         this.createDeck();
         this.shuffleDeck();
-        this.players.forEach(p => { p.hand = []; p.hasMelded = false; p.hasRun = false; p.hasDrawnFromDiscardThisRound = false; p.cekihDeclared = false; });
+        this.players.forEach(p => { p.hand = []; p.hasMelded = false; p.hasRun = false; p.hasDrawnFromDiscardThisRound = false; p.cekihDeclared = false; p.buangJokerPenalty = 0; });
         this.melds = [];
         this.discardPile = [];
         this.currentPlayerIndex = 0;
@@ -150,7 +150,7 @@ class ServerGame {
                 const penaltyValues = { 'A': -150, 'J': -100, 'Q': -100, 'K': -100 };
                 const penalty = penaltyValues[card.rank] || -50;
                 this.initialPenalties[playerId] = penalty;
-                this.players[playerId].score += penalty;
+                this.players[playerId].buangJokerPenalty += penalty;
                 penalties.push({ playerId, card: card.toJSON(), penalty });
             }
         });
@@ -418,12 +418,11 @@ class ServerGame {
         const card = player.hand.splice(cardIndex, 1)[0];
         let jokerPenalty = 0;
 
-        // Only apply immediate penalty if the Joker is already revealed.
-        // If discarded before reveal, it will be handled inside revealJoker().
+        // Tracking Joker penalty for end-game
         if (this.jokerRevealed && card.isJoker(this)) {
             const penaltyValues = { 'A': -150, 'J': -100, 'Q': -100, 'K': -100 };
             jokerPenalty = penaltyValues[card.rank] || -50;
-            player.score += jokerPenalty;
+            player.buangJokerPenalty += jokerPenalty;
         }
 
         // --- Tris Four Rule ---
@@ -432,7 +431,7 @@ class ServerGame {
             if (this.isTrisFour(player.hand)) {
                 // If they threw a joker just now, revert the penalty because Tris Four grants exactly +300 pure win
                 if (jokerPenalty < 0) {
-                    player.score -= jokerPenalty;
+                    player.buangJokerPenalty -= jokerPenalty;
                     jokerPenalty = 0;
                 }
                 return this.handleGameEnd(player, 0, card, null, null, true);
@@ -689,8 +688,8 @@ class ServerGame {
             });
         }
 
-        const roundScore = meldedPositive + handPositive + handNegative + bonus;
-        return { playerId: player.id, playerName: player.name, meldedPositive, handPositive, handNegative, tutupDeckBonus: bonus, roundScore, totalScore: player.score + roundScore, isWinner };
+        const roundScore = meldedPositive + handPositive + handNegative + bonus + player.buangJokerPenalty;
+        return { playerId: player.id, playerName: player.name, meldedPositive, handPositive, handNegative, tutupDeckBonus: bonus, buangJokerPenalty: player.buangJokerPenalty, roundScore, totalScore: player.score + roundScore, isWinner };
     }
 
     handleGameEnd(winner, bonus = 0, tutupDeckCard = null, cekihDetails = null, zeroDiscardBonus = null, isTrisFour = false) {
