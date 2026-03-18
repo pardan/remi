@@ -722,9 +722,9 @@ class ServerGame {
                     isWinner
                 };
             } else if (zeroDiscardBonus !== null) {
-                // If special zero discard bonus applies, zero out everything for everyone except winner's bonus
+                // If special zero discard bonus applies, zero out everything for everyone except winner's bonus and accumulated joker penalties
                 detail = this.calculatePlayerScore(p, isWinner, 0); // Call for base structure
-                detail.roundScore = isWinner ? zeroDiscardBonus : 0;
+                detail.roundScore = (isWinner ? zeroDiscardBonus : 0) + detail.buangJokerPenalty;
                 detail.handPositive = 0;
                 detail.handNegative = 0;
                 detail.meldedPositive = 0;
