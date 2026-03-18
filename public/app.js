@@ -230,6 +230,19 @@ class RemiClient {
                 handlers[msg.type](msg.payload);
             }
         });
+        
+        this.socket.addEventListener('open', () => {
+            if (this.myPlayerId !== null && this.roomCode) {
+                // Auto reconnect using the saved credentials
+                const myName = document.getElementById('join-player-name').value || 
+                               document.getElementById('host-player-name').value || 
+                               document.getElementById('scan-player-name').value || 
+                               document.getElementById('bot-player-name').value;
+                if (myName) {
+                    this.socket.emit('joinGame', { playerName: myName, roomCode: this.roomCode });
+                }
+            }
+        });
 
         this.bindSocketEvents();
     }
@@ -624,8 +637,16 @@ class RemiClient {
             this.audio.play('gunshot');
         });
 
-        this.socket.on('playerDisconnected', ({ playerName }) => {
-            this.showToast(`❌ ${playerName} keluar dari room.`, 'warning');
+        this.socket.on('playerDisconnected', ({ playerName, gracePeriod }) => {
+            if (gracePeriod) {
+                this.showToast(`⏳ ${playerName} terputus. Menunggu 60 detik...`, 'warning');
+            } else {
+                this.showToast(`❌ ${playerName} keluar dari room.`, 'warning');
+            }
+        });
+
+        this.socket.on('playerReconnected', ({ playerName }) => {
+            this.showToast(`✅ ${playerName} berhasil tersambung kembali!`, 'success');
         });
 
         this.socket.on('playerReplaced', ({ oldName, botName, playerIndex }) => {

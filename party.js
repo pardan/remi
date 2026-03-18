@@ -213,6 +213,43 @@ export default class RemiServer {
         if (action === 'joinGame') {
             const { playerName } = payload;
 
+            // Jeda 60 Detik: Cek jika pemain sedang dalam grace period
+            if (this.state.started && this.disconnectTimers) {
+                const disconnectedIndex = this.state.players.findIndex((p, i) => 
+                    p.name === playerName && this.disconnectTimers.has(i)
+                );
+                
+                if (disconnectedIndex !== -1) {
+                    clearTimeout(this.disconnectTimers.get(disconnectedIndex));
+                    this.disconnectTimers.delete(disconnectedIndex);
+                    
+                    // Recover the spot
+                    socket.roomCode = this.room.id;
+                    socket.playerIndex = disconnectedIndex;
+                    this.state.playerSockets[disconnectedIndex] = socket;
+                    socket.connected = true;
+                    
+                    console.log(`[Room ${this.room.id}] ${playerName} RECONNECTED to index ${disconnectedIndex}`);
+                    
+                    socket.emit('joinedRoom', { roomCode: this.room.id, playerIndex: disconnectedIndex });
+                    socket.emit('gameStarted', { playerIndex: disconnectedIndex });
+                    
+                    this.state.playerSockets.forEach(s => {
+                        if (s && s.connected && !s.doAction && s.id !== socket.id) {
+                            s.emit('playerNotification', {
+                                title: '✅ Pemain Kembali',
+                                message: `${playerName} berhasil terhubung kembali!`
+                            });
+                            s.emit('playerReconnected', { playerName });
+                        }
+                    });
+                    
+                    this.broadcastGameState();
+                    this.notifyLobby();
+                    return;
+                }
+            }
+
             if (this.state.started) {
                 const hostSocket = this.state.playerSockets[this.state.hostIndex];
                 if (hostSocket && hostSocket.connected && !hostSocket.doAction) {
@@ -517,19 +554,54 @@ export default class RemiServer {
     handleDisconnect(socket) {
         if (!socket || socket.playerIndex === undefined || socket.playerIndex === null) return;
 
-        const playerName = this.state.players[socket.playerIndex]?.name || 'Unknown';
+        const playerIndex = socket.playerIndex;
+        const playerName = this.state.players[playerIndex]?.name || 'Unknown';
         console.log(`[Room ${this.room.id}] ${playerName} disconnected`);
 
         if (this.state.started) {
-            const remainingHumans = this.state.playerSockets.filter((s, i) => s && s.connected && !s.doAction && i !== socket.playerIndex);
-            if (remainingHumans.length === 0) {
-                this.cleanupRoom();
-            } else {
-                this.replacePlayerWithBot(socket.playerIndex);
+            const remainingHumans = this.state.playerSockets.filter((s, i) => s && s.connected && !s.doAction && i !== playerIndex);
+            
+            if (remainingHumans.length > 0) {
+                this.state.playerSockets.forEach(s => {
+                    if (s && s.connected && !s.doAction && s.id !== socket.id) {
+                        s.emit('playerNotification', {
+                            title: '⚠️ Masalah Koneksi',
+                            message: `${playerName} terputus. Menunggu 60 detik untuk kembali...`
+                        });
+                        s.emit('playerDisconnected', { playerName, gracePeriod: true });
+                    }
+                });
             }
+
+            if (!this.disconnectTimers) this.disconnectTimers = new Map();
+            if (this.disconnectTimers.has(playerIndex)) {
+                clearTimeout(this.disconnectTimers.get(playerIndex));
+            }
+
+            const timerId = setTimeout(() => {
+                this.disconnectTimers.delete(playerIndex);
+                // Check if reconnected in the meantime
+                const currentSocketObj = this.state.playerSockets[playerIndex];
+                if (currentSocketObj && currentSocketObj.connected && !currentSocketObj.doAction) {
+                    return;
+                }
+
+                const stillRemainingHumans = this.state.playerSockets.filter((s, i) => s && s.connected && !s.doAction && i !== playerIndex);
+                if (stillRemainingHumans.length === 0) {
+                    this.cleanupRoom();
+                } else {
+                    this.replacePlayerWithBot(playerIndex);
+                }
+            }, 60000);
+
+            this.disconnectTimers.set(playerIndex, timerId);
+            this.broadcastLobby();
+            this.notifyLobby();
+
+            // DO NOT delete socket.roomCode / playerIndex, keep them bounded
         } else {
-            this.state.playerSockets[socket.playerIndex] = null;
-            this.state.players.splice(socket.playerIndex, 1);
+            this.state.playerSockets[playerIndex] = null;
+            this.state.players.splice(playerIndex, 1);
             this.state.playerSockets = this.state.playerSockets.filter(Boolean);
             while (this.state.playerSockets.length < NUM_PLAYERS) this.state.playerSockets.push(null);
             this.state.players.forEach((p, i) => {
@@ -541,10 +613,10 @@ export default class RemiServer {
                 this.broadcastLobby();
             }
             this.notifyLobby();
+            
+            delete socket.roomCode;
+            delete socket.playerIndex;
         }
-
-        delete socket.roomCode;
-        delete socket.playerIndex;
     }
 
     fillBotsAndStart() {
