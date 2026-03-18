@@ -666,11 +666,6 @@ class RemiClient {
                 this.audio.play('turn');
             }
 
-            // Auto-dismiss after 5 seconds
-            if (this._notifyTimer) clearTimeout(this._notifyTimer);
-            this._notifyTimer = setTimeout(() => {
-                document.getElementById('notify-modal').classList.remove('active');
-            }, 5000);
         });
 
         this.socket.on('roomClosed', ({ reason }) => {
